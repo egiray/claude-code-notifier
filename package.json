@@ -1,0 +1,42 @@
+{
+  "name": "claude-code-notifier",
+  "displayName": "Claude Code Notifier",
+  "description": "Get VS Code notifications when Claude Code needs your attention - never miss a question or permission request",
+  "version": "1.0.0",
+  "publisher": "YOUR_PUBLISHER_NAME",
+  "author": {
+    "name": "Erdem Giray"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/claude-code-notifier"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "anthropic",
+    "ai",
+    "notifications",
+    "hooks",
+    "productivity"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claude-notifier.notify",
+        "title": "Claude Code: Send Test Notification"
+      }
+    ]
+  }
+}
