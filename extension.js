@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { parsePayload, isAllowedEvent } = require('./lib/payload');
 
 const NOTIFY_FILE = path.join(os.tmpdir(), 'claude-notify');
 
@@ -60,22 +61,9 @@ function stopFileWatcher() {
     fs.unwatchFile(NOTIFY_FILE);
 }
 
-function parsePayload(raw) {
-    try {
-        const data = JSON.parse(raw);
-        return {
-            event: typeof data.event === 'string' ? data.event : 'notification',
-            text: typeof data.text === 'string' ? data.text : raw
-        };
-    } catch (_) {
-        return { event: 'notification', text: raw };
-    }
-}
-
-function getAllowedEvents() {
+function getAllowedList() {
     const cfg = vscode.workspace.getConfiguration('claudeCodeNotifier');
-    const list = cfg.get('allowedEvents', ['permission_prompt', 'elicitation_dialog']);
-    return new Set(list);
+    return cfg.get('allowedEvents', ['permission_prompt', 'elicitation_dialog']);
 }
 
 function handleNotification() {
@@ -90,7 +78,7 @@ function handleNotification() {
 
         const { event, text } = parsePayload(raw);
 
-        if (!getAllowedEvents().has(event)) {
+        if (!isAllowedEvent(event, getAllowedList())) {
             console.log(`Skipped notification for event type: ${event}`);
             isHandling = false;
             return;

@@ -30,6 +30,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "scripts": {
+    "test": "jest"
+  },
   "main": "./extension.js",
   "contributes": {
     "commands": [
@@ -43,11 +46,19 @@
       "properties": {
         "claudeCodeNotifier.allowedEvents": {
           "type": "array",
-          "items": { "type": "string" },
-          "default": ["permission_prompt", "elicitation_dialog"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "permission_prompt",
+            "elicitation_dialog"
+          ],
           "description": "Event types that trigger a VS Code notification. Hooks that fire during autonomous tool use (e.g. pre_tool_use) can be excluded here to prevent false positives."
         }
       }
     }
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
   }
 }
