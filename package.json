@@ -31,7 +31,9 @@
     "onStartupFinished"
   ],
   "scripts": {
-    "test": "jest"
+    "test": "jest && python3 -m unittest discover -s test -p 'test_*.py'",
+    "test:js": "jest",
+    "test:py": "python3 -m unittest discover -s test -p 'test_*.py'"
   },
   "main": "./extension.js",
   "contributes": {
