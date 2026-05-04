@@ -4,3 +4,4 @@ node_modules/
 .DS_Store
 CLAUDE.md
 PUBLISHING.md
+_local/
