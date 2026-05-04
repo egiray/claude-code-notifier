@@ -3,14 +3,22 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { parsePayload, isAllowedEvent } = require('./lib/payload');
+const { install: installHooks } = require('./lib/hook-installer');
 
 const NOTIFY_FILE = path.join(os.tmpdir(), 'claude-notify');
+const NOTIFY_SCRIPT_DEST = path.join(os.homedir(), '.claude', 'notify.py');
 
 let fileWatcher = null;
 let isHandling = false;
 
 function activate(context) {
     console.log('Claude Code Notifier is now active');
+
+    installHooks({
+        settingsPath: path.join(os.homedir(), '.claude', 'settings.json'),
+        notifyScriptSrc: path.join(context.extensionPath, 'hooks', 'notify.py'),
+        notifyScriptDest: NOTIFY_SCRIPT_DEST,
+    });
 
     let testCommand = vscode.commands.registerCommand('claude-notifier.notify', function () {
         const payload = JSON.stringify({ event: 'permission_prompt', text: 'Test: Claude needs your permission' });
