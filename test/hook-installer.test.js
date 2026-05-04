@@ -168,12 +168,12 @@ describe('install', () => {
         expect(() => install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest })).not.toThrow();
     });
 
-    test('does not overwrite existing notify.py', () => {
+    test('overwrites existing notify.py to keep it up to date', () => {
         fs.mkdirSync(path.dirname(scriptDest), { recursive: true });
-        fs.writeFileSync(scriptDest, '# existing script');
+        fs.writeFileSync(scriptDest, '# old script');
         const { scriptCopied } = install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest });
-        expect(scriptCopied).toBe(false);
-        expect(fs.readFileSync(scriptDest, 'utf8')).toBe('# existing script');
+        expect(scriptCopied).toBe(true);
+        expect(fs.readFileSync(scriptDest, 'utf8')).not.toBe('# old script');
     });
 
     test('is idempotent — running twice does not duplicate hooks', () => {
