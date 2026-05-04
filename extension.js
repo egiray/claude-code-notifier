@@ -4,12 +4,16 @@ const path = require('path');
 const os = require('os');
 const { parsePayload, isAllowedEvent } = require('./lib/payload');
 const { install: installHooks } = require('./lib/hook-installer');
+const { sendSystemNotification } = require('./lib/system-notification');
 
 const NOTIFY_FILE = path.join(os.tmpdir(), 'claude-notify');
 const NOTIFY_SCRIPT_DEST = path.join(os.homedir(), '.claude', 'notify.js');
 
 let fileWatcher = null;
 let isHandling = false;
+let lastNotifKey = '';
+let lastNotifTime = 0;
+const DEDUP_MS = 2000;
 
 function activate(context) {
     console.log('Claude Code Notifier is now active');
@@ -76,10 +80,29 @@ function stopFileWatcher() {
     fs.unwatchFile(NOTIFY_FILE);
 }
 
-function getAllowedList() {
-    const cfg = vscode.workspace.getConfiguration('claudeCodeNotifier');
-    return cfg.get('allowedEvents', ['permission_prompt', 'elicitation_dialog']);
+function getConfig() {
+    return vscode.workspace.getConfiguration('claudeCodeNotifier');
 }
+
+function getAllowedList() {
+    const cfg = getConfig();
+    const events = [];
+    if (cfg.get('notifyOnPermissionRequest', true)) events.push('permission_prompt');
+    if (cfg.get('notifyOnQuestion', true)) events.push('elicitation_dialog');
+    if (cfg.get('notifyOnTaskComplete', false)) events.push('idle_prompt');
+    if (cfg.get('notifyOnSubagentStop', false)) events.push('subagent_stop');
+    return events;
+}
+
+function isDuplicate(event, text) {
+    const key = `${event}:${text}`;
+    const now = Date.now();
+    if (key === lastNotifKey && now - lastNotifTime < DEDUP_MS) return true;
+    lastNotifKey = key;
+    lastNotifTime = now;
+    return false;
+}
+
 
 function handleNotification() {
     if (isHandling) return;
@@ -99,8 +122,33 @@ function handleNotification() {
             return;
         }
 
+        if (isDuplicate(event, text)) {
+            console.log(`Duplicate notification skipped [${event}]`);
+            isHandling = false;
+            return;
+        }
+
+        const cfg = getConfig();
+        const delayMs = (cfg.get('notificationDelay', 0) || 0) * 1000;
+
+        function fireSysNotif() {
+            const suppress = cfg.get('suppressWhenFocused', false) && vscode.window.state.focused;
+            sendSystemNotification(text, {
+                notification: cfg.get('systemNotification', true) && !suppress,
+                sound: cfg.get('sound', true) && !suppress,
+            });
+        }
+
+        let sysNotifTimer = null;
+        if (delayMs > 0) {
+            sysNotifTimer = setTimeout(fireSysNotif, delayMs);
+        } else {
+            fireSysNotif();
+        }
+
         vscode.window.showWarningMessage(`🔔 Claude Code: ${text}`, 'OK').then(selection => {
             if (selection === 'OK') {
+                if (sysNotifTimer) clearTimeout(sysNotifTimer);
                 try {
                     fs.writeFileSync(NOTIFY_FILE, '', 'utf8');
                 } catch (err) {

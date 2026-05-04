@@ -2,7 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
-    isManaged, buildSettings, removeManaged, install, uninstall, SENTINEL
+    isManaged, buildSettings, removeManaged, install, uninstall, SENTINEL, MATCHER
 } = require('../lib/hook-installer');
 
 // ── pure function tests (no file I/O) ───────────────────────────────────────
@@ -31,7 +31,7 @@ describe('buildSettings', () => {
         const { settings, installed } = buildSettings({}, scriptPath);
         expect(installed).toBe(true);
         expect(settings.hooks.Notification).toHaveLength(1);
-        expect(settings.hooks.Notification[0].matcher).toBe('permission_prompt|elicitation_dialog');
+        expect(settings.hooks.Notification[0].matcher).toBe(MATCHER);
         expect(settings.hooks.Notification[0].hooks[0].command).toContain(scriptPath);
         expect(settings.hooks.Notification[0].hooks[0].command).toContain(SENTINEL);
     });
@@ -60,11 +60,26 @@ describe('buildSettings', () => {
         expect(settings.hooks.Notification[0].hooks[0].command).toBe('other.sh');
     });
 
-    test('is idempotent — skips if our hook is already present', () => {
+    test('is idempotent — skips if our hook is already present with current matcher', () => {
         const { settings: first } = buildSettings({}, scriptPath);
         const { settings: second, installed } = buildSettings(first, scriptPath);
         expect(installed).toBe(false);
         expect(second.hooks.Notification).toHaveLength(1);
+    });
+
+    test('updates matcher if hook exists with outdated matcher', () => {
+        const outdated = {
+            hooks: {
+                Notification: [{
+                    matcher: 'permission_prompt|elicitation_dialog',
+                    hooks: [{ type: 'command', command: `node /some/path ${SENTINEL}` }]
+                }]
+            }
+        };
+        const { settings, installed } = buildSettings(outdated, scriptPath);
+        expect(installed).toBe(true);
+        expect(settings.hooks.Notification[0].matcher).toBe(MATCHER);
+        expect(settings.hooks.Notification).toHaveLength(1);
     });
 
     test('does not mutate the original settings object', () => {

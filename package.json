@@ -2,11 +2,12 @@
   "name": "claude-code-notifier",
   "displayName": "Claude Code Notifier",
   "description": "Get VS Code notifications when Claude Code needs your attention - never miss a question or permission request",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "publisher": "erdemgiray",
   "author": {
     "name": "Erdem Giray"
   },
+  "icon": "icon.png",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -44,16 +45,47 @@
     "configuration": {
       "title": "Claude Code Notifier",
       "properties": {
-        "claudeCodeNotifier.allowedEvents": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [
-            "permission_prompt",
-            "elicitation_dialog"
-          ],
-          "description": "Event types that trigger a VS Code notification. Hooks that fire during autonomous tool use (e.g. pre_tool_use) can be excluded here to prevent false positives."
+        "claudeCodeNotifier.notifyOnPermissionRequest": {
+          "type": "boolean",
+          "default": true,
+          "description": "Notify when Claude is asking for permission to run a command."
+        },
+        "claudeCodeNotifier.notifyOnQuestion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Notify when Claude needs to ask you a question before continuing."
+        },
+        "claudeCodeNotifier.notifyOnTaskComplete": {
+          "type": "boolean",
+          "default": false,
+          "description": "Notify when Claude finishes a task and is waiting for your next instruction."
+        },
+        "claudeCodeNotifier.notifyOnSubagentStop": {
+          "type": "boolean",
+          "default": false,
+          "description": "Notify when a Claude subagent finishes its task."
+        },
+        "claudeCodeNotifier.systemNotification": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show an OS-level notification pop-up in addition to the VS Code notification. Works on macOS, Windows, and Linux."
+        },
+        "claudeCodeNotifier.sound": {
+          "type": "boolean",
+          "default": true,
+          "description": "Play a sound when Claude needs your attention. Works on macOS, Windows, and Linux."
+        },
+        "claudeCodeNotifier.notificationDelay": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 60,
+          "description": "Seconds to wait before playing sound and showing the OS notification. If you dismiss the VS Code popup within this time, the sound and OS notification are cancelled."
+        },
+        "claudeCodeNotifier.suppressWhenFocused": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip the system notification and sound when VS Code is already the active window. The VS Code popup will still appear."
         }
       }
     }
