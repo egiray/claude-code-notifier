@@ -44,19 +44,12 @@ function startFileWatcher() {
         });
         console.log(`Watching for notifications at: ${NOTIFY_FILE}`);
     } catch (err) {
-        console.error('Failed to watch notification file:', err);
+        // fs.watch unavailable (e.g. network drives) — fall back to polling
+        console.error('fs.watch failed, falling back to fs.watchFile:', err);
+        fs.watchFile(NOTIFY_FILE, { interval: 500 }, (curr, prev) => {
+            if (curr.mtimeMs > prev.mtimeMs) handleNotification();
+        });
     }
-
-    let lastMtime = 0;
-    setInterval(() => {
-        try {
-            if (fs.existsSync(NOTIFY_FILE)) {
-                const stats = fs.statSync(NOTIFY_FILE);
-                if (stats.mtimeMs > lastMtime && lastMtime !== 0) handleNotification();
-                lastMtime = stats.mtimeMs;
-            }
-        } catch (_) {}
-    }, 1000);
 }
 
 function stopFileWatcher() {
@@ -64,6 +57,7 @@ function stopFileWatcher() {
         fileWatcher.close();
         fileWatcher = null;
     }
+    fs.unwatchFile(NOTIFY_FILE);
 }
 
 function parsePayload(raw) {
