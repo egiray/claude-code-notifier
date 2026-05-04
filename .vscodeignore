@@ -1,4 +1,11 @@
+.vscode/**
+.git/**
 .gitignore
-.vscode/
-node_modules/
+_local/**
+test/**
+node_modules/**
 *.vsix
+CLAUDE.md
+PUBLISHING.md
+.claude/**
+package-lock.json
