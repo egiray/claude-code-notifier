@@ -5,9 +5,9 @@ Never miss when Claude Code needs your attention! Get instant VS Code notificati
 ## ✨ Features
 
 - 🔔 **VS Code Notifications**: Get notified directly in VS Code when Claude needs you
-- 🎯 **Smart Triggers**: Monitors permission requests, questions, and idle states
+- 🎯 **Smart Triggers**: Monitors permission requests and questions
 - ⚡ **Zero Configuration**: Works automatically once installed
-- 🔧 **Customizable**: Easy to configure with Claude Code hooks
+- 🔧 **Customizable**: Control which events trigger notifications via VS Code settings
 
 ## 📦 Installation
 
@@ -19,35 +19,30 @@ Install from the VS Code marketplace or:
 code --install-extension erdemgiray.claude-code-notifier
 ```
 
-### Step 2: Configure Claude Code Hooks
+### Step 2: Save the Hook Script
 
-Add the following hooks configuration to your Claude Code settings.
+Copy [`hooks/notify.py`](hooks/notify.py) from this repository to `~/.claude/notify.py`:
 
-**For global notifications (all projects):**
-Add to `~/.claude/settings.local.json`:
+```bash
+curl -o ~/.claude/notify.py https://raw.githubusercontent.com/egiray/claude-code-notifier/main/hooks/notify.py
+```
 
-**For project-specific notifications:**
-Add to `.claude/settings.local.json` in your project directory:
+This script reads the JSON payload Claude Code sends to hooks and passes the real message to the extension.
+
+### Step 3: Configure Claude Code Hooks
+
+Add to `~/.claude/settings.local.json` for all projects, or `.claude/settings.local.json` for a specific project:
 
 ```json
 {
   "hooks": {
     "Notification": [
       {
-        "matcher": "permission_prompt",
+        "matcher": "permission_prompt|elicitation_dialog",
         "hooks": [
           {
             "type": "command",
-            "command": "printf '{\"event\":\"permission_prompt\",\"text\":\"Claude needs your permission\"}' > \"${TMPDIR:-/tmp}/claude-notify\""
-          }
-        ]
-      },
-      {
-        "matcher": "elicitation_dialog",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "printf '{\"event\":\"elicitation_dialog\",\"text\":\"Claude has a question for you\"}' > \"${TMPDIR:-/tmp}/claude-notify\""
+            "command": "python3 ~/.claude/notify.py"
           }
         ]
       }
@@ -56,94 +51,95 @@ Add to `.claude/settings.local.json` in your project directory:
 }
 ```
 
-**Windows users:** Replace `${TMPDIR:-/tmp}` with `%TEMP%` in the hook commands, or run `node -e "console.log(require('os').tmpdir())"` to find your temp directory path.
-
-### Step 3: Install terminal-notifier (macOS only - optional)
-
-For system-level notifications in addition to VS Code popups:
-
-```bash
-brew install terminal-notifier
-```
-
-Append `&& terminal-notifier -title "Claude Code" -message "Claude needs your permission" -sound Glass` to each hook command if you want both.
-
 ## 🚀 Usage
 
-Once installed and configured, the extension works automatically:
+Once installed, the extension works automatically:
 
-1. **Permission Requests**: Get notified when Claude needs permission to run commands
-2. **Questions**: Get notified when Claude asks you questions via `AskUserQuestion`
+1. **Permission Requests**: Get notified when Claude needs permission to run a command
+2. **Questions**: Get notified when Claude asks you something via `AskUserQuestion`
 
-**Note:** The configuration excludes `idle_prompt` (task completion notifications) to reduce notification noise. You'll only be notified when Claude is blocked and needs your input.
+**Note:** `idle_prompt` (task completion) is excluded by default to reduce noise. You'll only be notified when Claude is actually blocked and needs your input.
 
 ## 🔧 Filtering Notifications
 
-You can control which event types show notifications via VS Code settings:
+Control which event types show notifications via VS Code settings:
 
 ```json
 "claudeCodeNotifier.allowedEvents": ["permission_prompt", "elicitation_dialog"]
 ```
 
-Any hook that writes an event type not in this list will be silently ignored. This is useful for preventing false positives when Claude runs tools autonomously.
+Any event type not in this list is silently ignored. Add `idle_prompt` if you want to know when Claude finishes a task.
 
 ## 🧪 Testing
 
-Test the extension by running the command palette (`Cmd+Shift+P`) and searching for:
-
+**Run the test command** — open the command palette (`Cmd+Shift+P`) and search for:
 ```
 Claude Code: Send Test Notification
 ```
 
-Or manually write to the trigger file:
-
+**Or write to the trigger file directly:**
 ```bash
-printf '{"event":"permission_prompt","text":"Test message"}' > "${TMPDIR:-/tmp}/claude-notify"
+python3 ~/.claude/notify.py <<'EOF'
+{"hook_event_name": "Notification", "notification_type": "permission_prompt", "message": "Test: Claude needs your permission"}
+EOF
 ```
 
 ## 🛠️ How It Works
 
-The extension watches a trigger file (`claude-notify` in your system's temp directory) for changes. When Claude Code hooks write a JSON payload to this file, the extension reads the event type and message, filters based on your `allowedEvents` setting, and displays a VS Code notification.
-
-## 📝 Customization
-
-### Custom Messages
-
-Edit the `text` field in the hook command:
-
-```bash
-printf '{"event":"permission_prompt","text":"Hey! Claude needs you!"}' > "${TMPDIR:-/tmp}/claude-notify"
+```
+Claude Code hook fires
+       │
+       ▼
+~/.claude/notify.py reads JSON from stdin
+       │  extracts notification_type + message
+       ▼
+writes {"event":"permission_prompt","text":"..."} to $TMPDIR/claude-notify
+       │
+       ▼
+Extension watches the file, filters by allowedEvents, shows VS Code notification
 ```
 
-### Optional: Task Completion Notifications
+The trigger file path is resolved via `os.tmpdir()` in the extension and `$TMPDIR` in the hook script — both resolve to the same location on macOS and Linux.
 
-If you want to be notified when Claude finishes tasks:
+## 📝 Optional: Task Completion Notifications
+
+To be notified when Claude finishes a task and is waiting for your next prompt:
 
 ```json
 {
-  "matcher": "idle_prompt",
-  "hooks": [
-    {
-      "type": "command",
-      "command": "printf '{\"event\":\"idle_prompt\",\"text\":\"Claude is waiting for your input\"}' > \"${TMPDIR:-/tmp}/claude-notify\""
-    }
-  ]
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "permission_prompt|elicitation_dialog|idle_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/notify.py"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-Add `idle_prompt` to your `claudeCodeNotifier.allowedEvents` setting to enable this.
+Then add `idle_prompt` to `claudeCodeNotifier.allowedEvents` in your VS Code settings.
 
 ## 🐛 Troubleshooting
 
 **Notifications not appearing?**
-- Ensure the extension is installed and activated (check Extensions panel)
-- Verify hooks are configured in `.claude/settings.local.json`
-- Run the test command to verify the extension is working
-- Check the VS Code Output panel for "Claude Code Notifier" logs
+- Verify the extension is active (check Extensions panel)
+- Check hooks are configured in `.claude/settings.local.json`
+- Test the script directly: `echo '{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"test"}' | python3 ~/.claude/notify.py`
+- Check the VS Code Output panel → "Claude Code Notifier" for logs
 
-**False positive notifications?**
-- Check `claudeCodeNotifier.allowedEvents` in your VS Code settings
-- Remove event types that fire too frequently
+**Wrong or missing message text?**
+- Make sure `~/.claude/notify.py` is the latest version from this repo
+- Old plain-text hook configs still work but show hardcoded messages — migrate to the script
+
+## 🪟 Windows
+
+Replace `python3 ~/.claude/notify.py` with the full path to `notify.py` and use `python` instead of `python3` if needed. The script uses only Python stdlib and works on Windows.
 
 ## 📄 License
 
@@ -151,8 +147,8 @@ MIT
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions are welcome! Please open an issue before submitting a pull request.
 
 ## ⭐ Support
 
-If you find this extension helpful, please star the repository and share it with others!
+If you find this extension helpful, please star the repository!
