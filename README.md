@@ -6,49 +6,20 @@ Never miss when Claude Code needs your attention! Get instant VS Code notificati
 
 - 🔔 **VS Code Notifications**: Get notified directly in VS Code when Claude needs you
 - 🎯 **Smart Triggers**: Monitors permission requests and questions
-- ⚡ **Zero Configuration**: Works automatically once installed
+- ⚡ **Zero Configuration**: Hooks install automatically on first activation
 - 🔧 **Customizable**: Control which events trigger notifications via VS Code settings
 
 ## 📦 Installation
 
-### Step 1: Install the Extension
+Install from the VS Code Marketplace — that's it. On first activation, the extension automatically:
 
-Install from the VS Code marketplace or:
+1. Copies `notify.py` to `~/.claude/notify.py`
+2. Adds the required hooks to `~/.claude/settings.json`
+
+No manual configuration needed.
 
 ```bash
 code --install-extension erdemgiray.claude-code-notifier
-```
-
-### Step 2: Save the Hook Script
-
-Copy [`hooks/notify.py`](hooks/notify.py) from this repository to `~/.claude/notify.py`:
-
-```bash
-curl -o ~/.claude/notify.py https://raw.githubusercontent.com/egiray/claude-code-notifier/main/hooks/notify.py
-```
-
-This script reads the JSON payload Claude Code sends to hooks and passes the real message to the extension.
-
-### Step 3: Configure Claude Code Hooks
-
-Add to `~/.claude/settings.local.json` for all projects, or `.claude/settings.local.json` for a specific project:
-
-```json
-{
-  "hooks": {
-    "Notification": [
-      {
-        "matcher": "permission_prompt|elicitation_dialog",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/notify.py"
-          }
-        ]
-      }
-    ]
-  }
-}
 ```
 
 ## 🚀 Usage
@@ -77,11 +48,9 @@ Any event type not in this list is silently ignored. Add `idle_prompt` if you wa
 Claude Code: Send Test Notification
 ```
 
-**Or write to the trigger file directly:**
+**Or simulate a hook directly:**
 ```bash
-python3 ~/.claude/notify.py <<'EOF'
-{"hook_event_name": "Notification", "notification_type": "permission_prompt", "message": "Test: Claude needs your permission"}
-EOF
+echo '{"hook_event_name": "Notification", "notification_type": "permission_prompt", "message": "Test: Claude needs your permission"}' | python3 ~/.claude/notify.py
 ```
 
 ## 🛠️ How It Works
@@ -103,14 +72,22 @@ The trigger file path is resolved via `os.tmpdir()` in the extension and `$TMPDI
 
 ## 📝 Optional: Task Completion Notifications
 
-To be notified when Claude finishes a task and is waiting for your next prompt:
+To be notified when Claude finishes a task and is waiting for your next prompt, add `idle_prompt` to your VS Code settings:
+
+```json
+"claudeCodeNotifier.allowedEvents": ["permission_prompt", "elicitation_dialog", "idle_prompt"]
+```
+
+## 🔩 Manual Hook Configuration
+
+If you prefer to configure hooks yourself (e.g. for a specific project), add this to `.claude/settings.local.json`:
 
 ```json
 {
   "hooks": {
     "Notification": [
       {
-        "matcher": "permission_prompt|elicitation_dialog|idle_prompt",
+        "matcher": "permission_prompt|elicitation_dialog",
         "hooks": [
           {
             "type": "command",
@@ -123,19 +100,16 @@ To be notified when Claude finishes a task and is waiting for your next prompt:
 }
 ```
 
-Then add `idle_prompt` to `claudeCodeNotifier.allowedEvents` in your VS Code settings.
-
 ## 🐛 Troubleshooting
 
 **Notifications not appearing?**
-- Verify the extension is active (check Extensions panel)
-- Check hooks are configured in `.claude/settings.local.json`
-- Test the script directly: `echo '{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"test"}' | python3 ~/.claude/notify.py`
-- Check the VS Code Output panel → "Claude Code Notifier" for logs
+- Verify the extension is active (check Extensions panel — should show `erdemgiray.claude-code-notifier`)
+- Check that `~/.claude/notify.py` exists and `~/.claude/settings.json` contains the hook
+- Simulate a hook manually: `echo '{"notification_type":"permission_prompt","message":"test"}' | python3 ~/.claude/notify.py`
+- Check the VS Code extension host log: `Help → Toggle Developer Tools → Console`
 
 **Wrong or missing message text?**
-- Make sure `~/.claude/notify.py` is the latest version from this repo
-- Old plain-text hook configs still work but show hardcoded messages — migrate to the script
+- Make sure `~/.claude/notify.py` is up to date — reinstall the extension to refresh it
 
 ## 🪟 Windows
 
