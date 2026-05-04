@@ -38,12 +38,8 @@ Add `idle_prompt` to also be notified when Claude finishes a task.
 ## Troubleshooting
 
 - Make sure the extension is active (Extensions panel → `erdemgiray.claude-code-notifier`)
-- Check that `~/.claude/notify.py` exists and `~/.claude/settings.json` contains the hook
+- Check that `~/.claude/notify.js` exists and `~/.claude/settings.json` contains the hook
 - Open `Help → Toggle Developer Tools → Console` to see extension logs
-
-## Windows
-
-Use `python` instead of `python3` if needed. The script uses only Python stdlib.
 
 ## License
 

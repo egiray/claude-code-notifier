@@ -9,7 +9,7 @@ const {
 
 describe('isManaged', () => {
     test('returns true for entries with our sentinel', () => {
-        const entry = { hooks: [{ type: 'command', command: `python3 /some/path ${SENTINEL}` }] };
+        const entry = { hooks: [{ type: 'command', command: `node /some/path ${SENTINEL}` }] };
         expect(isManaged(entry)).toBe(true);
     });
 
@@ -25,7 +25,7 @@ describe('isManaged', () => {
 });
 
 describe('buildSettings', () => {
-    const scriptPath = '/home/user/.claude/notify.py';
+    const scriptPath = '/home/user/.claude/notify.js';
 
     test('adds Notification hook to empty settings', () => {
         const { settings, installed } = buildSettings({}, scriptPath);
@@ -75,7 +75,7 @@ describe('buildSettings', () => {
 });
 
 describe('removeManaged', () => {
-    const scriptPath = '/home/user/.claude/notify.py';
+    const scriptPath = '/home/user/.claude/notify.js';
 
     test('removes our hook entry', () => {
         const { settings: withHook } = buildSettings({}, scriptPath);
@@ -134,8 +134,8 @@ describe('install', () => {
     beforeEach(() => {
         tmpDir = makeTempDir();
         settingsPath = path.join(tmpDir, 'settings.json');
-        scriptSrc = path.join(tmpDir, 'notify.py');
-        scriptDest = path.join(tmpDir, 'dest', 'notify.py');
+        scriptSrc = path.join(tmpDir, 'notify.js');
+        scriptDest = path.join(tmpDir, 'dest', 'notify.js');
         fs.writeFileSync(scriptSrc, '# notify script');
     });
 
@@ -150,7 +150,7 @@ describe('install', () => {
         expect(written.hooks.Notification).toHaveLength(1);
     });
 
-    test('copies notify.py to destination', () => {
+    test('copies notify.js to destination', () => {
         install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest });
         expect(fs.existsSync(scriptDest)).toBe(true);
         expect(fs.readFileSync(scriptDest, 'utf8')).toBe('# notify script');
@@ -168,7 +168,7 @@ describe('install', () => {
         expect(() => install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest })).not.toThrow();
     });
 
-    test('overwrites existing notify.py to keep it up to date', () => {
+    test('overwrites existing notify.js to keep it up to date', () => {
         fs.mkdirSync(path.dirname(scriptDest), { recursive: true });
         fs.writeFileSync(scriptDest, '# old script');
         const { scriptCopied } = install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest });
@@ -197,7 +197,7 @@ describe('uninstall', () => {
     });
 
     test('removes our hook and cleans up empty sections', () => {
-        const { settings } = buildSettings({}, '/some/notify.py');
+        const { settings } = buildSettings({}, '/some/notify.js');
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         const { removed } = uninstall({ settingsPath });
         expect(removed).toBe(1);

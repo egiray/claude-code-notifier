@@ -2,7 +2,7 @@
   "name": "claude-code-notifier",
   "displayName": "Claude Code Notifier",
   "description": "Get VS Code notifications when Claude Code needs your attention - never miss a question or permission request",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "erdemgiray",
   "author": {
     "name": "Erdem Giray"
@@ -31,9 +31,7 @@
     "onStartupFinished"
   ],
   "scripts": {
-    "test": "jest && python3 -m unittest discover -s test -p 'test_*.py'",
-    "test:js": "jest",
-    "test:py": "python3 -m unittest discover -s test -p 'test_*.py'"
+    "test": "jest"
   },
   "main": "./extension.js",
   "contributes": {
