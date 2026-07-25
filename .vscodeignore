@@ -1,11 +1,15 @@
 .vscode/**
 .git/**
 .gitignore
+_local
 _local/**
 test/**
 node_modules/**
 *.vsix
 CLAUDE.md
+GEMINI.md
 PUBLISHING.md
+CONTRIBUTING.md
+.claude
 .claude/**
 package-lock.json
