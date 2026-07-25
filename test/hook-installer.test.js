@@ -27,7 +27,7 @@ describe('isManaged', () => {
 describe('buildSettings', () => {
     const scriptPath = '/home/user/.claude/notify.js';
 
-    test('adds Notification hook to empty settings', () => {
+    test('adds a Notification hook to empty settings', () => {
         const { settings, installed } = buildSettings({}, scriptPath);
         expect(installed).toBe(true);
         expect(settings.hooks.Notification).toHaveLength(1);
@@ -36,7 +36,19 @@ describe('buildSettings', () => {
         expect(settings.hooks.Notification[0].hooks[0].command).toContain(SENTINEL);
     });
 
-    test('adds hook alongside existing unrelated hooks', () => {
+    test('registers a SubagentStop hook, which is a separate event from Notification', () => {
+        const { settings } = buildSettings({}, scriptPath);
+        expect(settings.hooks.SubagentStop).toHaveLength(1);
+        expect(settings.hooks.SubagentStop[0].matcher).toBeUndefined();
+        expect(settings.hooks.SubagentStop[0].hooks[0].command).toContain(scriptPath);
+    });
+
+    test('never puts subagent_stop in the Notification matcher', () => {
+        const { settings } = buildSettings({}, scriptPath);
+        expect(settings.hooks.Notification[0].matcher).not.toContain('subagent');
+    });
+
+    test('adds hooks alongside existing unrelated hooks', () => {
         const existing = {
             hooks: {
                 PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'lint.sh' }] }]
@@ -46,9 +58,10 @@ describe('buildSettings', () => {
         expect(installed).toBe(true);
         expect(settings.hooks.PreToolUse).toHaveLength(1);
         expect(settings.hooks.Notification).toHaveLength(1);
+        expect(settings.hooks.SubagentStop).toHaveLength(1);
     });
 
-    test('adds hook alongside existing unrelated Notification entries', () => {
+    test('adds hooks alongside existing unrelated Notification entries', () => {
         const existing = {
             hooks: {
                 Notification: [{ matcher: 'idle_prompt', hooks: [{ type: 'command', command: 'other.sh' }] }]
@@ -60,26 +73,61 @@ describe('buildSettings', () => {
         expect(settings.hooks.Notification[0].hooks[0].command).toBe('other.sh');
     });
 
-    test('is idempotent — skips if our hook is already present with current matcher', () => {
+    test('is idempotent — skips when our hooks are already in their current shape', () => {
         const { settings: first } = buildSettings({}, scriptPath);
         const { settings: second, installed } = buildSettings(first, scriptPath);
         expect(installed).toBe(false);
         expect(second.hooks.Notification).toHaveLength(1);
+        expect(second.hooks.SubagentStop).toHaveLength(1);
     });
 
-    test('updates matcher if hook exists with outdated matcher', () => {
+    test('updates an outdated matcher', () => {
         const outdated = {
             hooks: {
                 Notification: [{
                     matcher: 'permission_prompt|elicitation_dialog',
-                    hooks: [{ type: 'command', command: `node /some/path ${SENTINEL}` }]
+                    hooks: [{ type: 'command', command: `node "${scriptPath}" ${SENTINEL}` }]
                 }]
             }
         };
         const { settings, installed } = buildSettings(outdated, scriptPath);
         expect(installed).toBe(true);
-        expect(settings.hooks.Notification[0].matcher).toBe(MATCHER);
         expect(settings.hooks.Notification).toHaveLength(1);
+        expect(settings.hooks.Notification[0].matcher).toBe(MATCHER);
+    });
+
+    // Upgrades used to leave the old command in place forever, so anyone who
+    // installed the Python-era version kept calling a script we no longer ship.
+    test('repairs an install still pointing at the retired Python hook', () => {
+        const legacy = {
+            hooks: {
+                Notification: [{
+                    matcher: 'permission_prompt|elicitation_dialog|idle_prompt|subagent_stop',
+                    hooks: [{ type: 'command', command: `python3 "/home/user/.claude/notify.py" ${SENTINEL}` }]
+                }]
+            }
+        };
+        const { settings, installed } = buildSettings(legacy, scriptPath);
+        expect(installed).toBe(true);
+        expect(settings.hooks.Notification).toHaveLength(1);
+        const command = settings.hooks.Notification[0].hooks[0].command;
+        expect(command).toContain(scriptPath);
+        expect(command).not.toContain('notify.py');
+        expect(settings.hooks.SubagentStop).toHaveLength(1);
+    });
+
+    test('repairs a command pointing at a stale script location', () => {
+        const stale = {
+            hooks: {
+                Notification: [{
+                    matcher: MATCHER,
+                    hooks: [{ type: 'command', command: `node "/old/location/notify.js" ${SENTINEL}` }]
+                }]
+            }
+        };
+        const { settings, installed } = buildSettings(stale, scriptPath);
+        expect(installed).toBe(true);
+        expect(settings.hooks.Notification[0].hooks[0].command).toContain(scriptPath);
     });
 
     test('does not mutate the original settings object', () => {
@@ -92,10 +140,10 @@ describe('buildSettings', () => {
 describe('removeManaged', () => {
     const scriptPath = '/home/user/.claude/notify.js';
 
-    test('removes our hook entry', () => {
-        const { settings: withHook } = buildSettings({}, scriptPath);
-        const { settings, removed } = removeManaged(withHook);
-        expect(removed).toBe(1);
+    test('removes both of our hook entries', () => {
+        const { settings: withHooks } = buildSettings({}, scriptPath);
+        const { settings, removed } = removeManaged(withHooks);
+        expect(removed).toBe(2);
         expect(settings.hooks).toBeUndefined();
     });
 
@@ -110,7 +158,7 @@ describe('removeManaged', () => {
         expect(settings.hooks.PreToolUse).toHaveLength(1);
     });
 
-    test('removes only our entry when mixed with unrelated ones', () => {
+    test('removes only our entries when mixed with unrelated ones', () => {
         const existing = {
             hooks: {
                 Notification: [{ matcher: 'idle_prompt', hooks: [{ type: 'command', command: 'other.sh' }] }]
@@ -118,9 +166,10 @@ describe('removeManaged', () => {
         };
         const { settings: withBoth } = buildSettings(existing, scriptPath);
         const { settings, removed } = removeManaged(withBoth);
-        expect(removed).toBe(1);
+        expect(removed).toBe(2);
         expect(settings.hooks.Notification).toHaveLength(1);
         expect(settings.hooks.Notification[0].hooks[0].command).toBe('other.sh');
+        expect(settings.hooks.SubagentStop).toBeUndefined();
     });
 
     test('handles settings with no hooks key', () => {
@@ -130,10 +179,10 @@ describe('removeManaged', () => {
     });
 
     test('does not mutate the original settings object', () => {
-        const { settings: withHook } = buildSettings({}, scriptPath);
-        const original = JSON.parse(JSON.stringify(withHook));
-        removeManaged(withHook);
-        expect(withHook).toEqual(original);
+        const { settings: withHooks } = buildSettings({}, scriptPath);
+        const original = JSON.parse(JSON.stringify(withHooks));
+        removeManaged(withHooks);
+        expect(withHooks).toEqual(original);
     });
 });
 
@@ -163,6 +212,7 @@ describe('install', () => {
         expect(fs.existsSync(settingsPath)).toBe(true);
         const written = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
         expect(written.hooks.Notification).toHaveLength(1);
+        expect(written.hooks.SubagentStop).toHaveLength(1);
     });
 
     test('copies notify.js to destination', () => {
@@ -196,6 +246,35 @@ describe('install', () => {
         install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest });
         const written = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
         expect(written.hooks.Notification).toHaveLength(1);
+        expect(written.hooks.SubagentStop).toHaveLength(1);
+    });
+
+    test('leaves settings.json untouched when nothing needs changing', () => {
+        install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest });
+        const before = fs.readFileSync(settingsPath, 'utf8');
+        install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest });
+        expect(fs.readFileSync(settingsPath, 'utf8')).toBe(before);
+    });
+
+    test('preserves unrelated settings while repairing a legacy install', () => {
+        fs.writeFileSync(settingsPath, JSON.stringify({
+            model: 'opus',
+            hooks: {
+                Notification: [{
+                    matcher: 'permission_prompt|elicitation_dialog|idle_prompt|subagent_stop',
+                    hooks: [{ type: 'command', command: `python3 "/gone/notify.py" ${SENTINEL}` }]
+                }],
+                PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'lint.sh' }] }]
+            }
+        }, null, 2));
+
+        install({ settingsPath, notifyScriptSrc: scriptSrc, notifyScriptDest: scriptDest });
+
+        const written = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        expect(written.model).toBe('opus');
+        expect(written.hooks.PreToolUse).toHaveLength(1);
+        expect(written.hooks.Notification[0].hooks[0].command).toContain(scriptDest);
+        expect(written.hooks.SubagentStop).toHaveLength(1);
     });
 });
 
@@ -211,11 +290,11 @@ describe('uninstall', () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    test('removes our hook and cleans up empty sections', () => {
+    test('removes our hooks and cleans up empty sections', () => {
         const { settings } = buildSettings({}, '/some/notify.js');
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         const { removed } = uninstall({ settingsPath });
-        expect(removed).toBe(1);
+        expect(removed).toBe(2);
         const written = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
         expect(written.hooks).toBeUndefined();
     });

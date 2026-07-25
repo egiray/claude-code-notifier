@@ -1,4 +1,34 @@
-const { parsePayload, isAllowedEvent, DEFAULT_ALLOWED_EVENTS } = require('../lib/payload');
+const { parsePayload, isAllowedEvent, normalizeEvent, DEFAULT_ALLOWED_EVENTS } = require('../lib/payload');
+
+// Notification types arrive as snake_case, hook event names as PascalCase.
+describe('normalizeEvent', () => {
+    test('treats SubagentStop and subagent_stop as the same event', () => {
+        expect(normalizeEvent('SubagentStop')).toBe(normalizeEvent('subagent_stop'));
+    });
+
+    test('handles missing values', () => {
+        expect(normalizeEvent(undefined)).toBe('');
+        expect(normalizeEvent(null)).toBe('');
+    });
+
+    test('keeps distinct events distinct', () => {
+        expect(normalizeEvent('permission_prompt')).not.toBe(normalizeEvent('idle_prompt'));
+    });
+});
+
+describe('isAllowedEvent across naming styles', () => {
+    test('a SubagentStop event matches a snake_case allow list', () => {
+        expect(isAllowedEvent('SubagentStop', ['subagent_stop'])).toBe(true);
+    });
+
+    test('a subagent_stop event matches a PascalCase allow list', () => {
+        expect(isAllowedEvent('subagent_stop', ['SubagentStop'])).toBe(true);
+    });
+
+    test('does not match an unrelated event', () => {
+        expect(isAllowedEvent('Stop', ['SubagentStop'])).toBe(false);
+    });
+});
 
 describe('parsePayload', () => {
     describe('valid JSON payloads', () => {

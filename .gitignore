@@ -3,7 +3,9 @@ node_modules/
 .vscode-test/
 .DS_Store
 CLAUDE.md
+GEMINI.md
 PUBLISHING.md
 _local/
+.claude
 .claude/
 test/__pycache__/
