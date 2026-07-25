@@ -21,6 +21,10 @@ code --install-extension erdemgiray.claude-code-notifier
 
 Open the command palette (`Cmd+Shift+P`) and run **Claude Code: Send Test Notification** to verify everything works.
 
+If something is missing — say the sound plays but no banner appears — run
+**Claude Code: Diagnose Notifications**. It sends each kind of notification one at a
+time, clearly labelled, then prints a report saying what worked and what to fix.
+
 ## Settings
 
 Open VS Code Settings and search for **Claude Code Notifier** to configure:
@@ -43,13 +47,25 @@ Open VS Code Settings and search for **Claude Code Notifier** to configure:
 
 ## Troubleshooting
 
+Start with **Claude Code: Diagnose Notifications** from the command palette — it
+checks the setup, sends a labelled test of each notification type, and tells you
+what to do about anything that failed.
+
+**The VS Code popup appears but no banner shows up on macOS**
+
+This is a macOS permission question, not a setup problem. Without `terminal-notifier`
+installed, banners are sent by macOS's built-in scripting tool and are attributed to
+**Script Editor** — so if Script Editor is not allowed to send notifications, nothing
+appears and nothing reports an error.
+
+- Open System Settings → Notifications → Script Editor and allow notifications
+- Check that Focus / Do Not Disturb is off
+- Or install `terminal-notifier`, which lets banners appear as VS Code itself, with
+  its icon and its notification settings: `brew install terminal-notifier`
+
 **No notification at all**
 - Check that the extension is active: Extensions panel → search `erdemgiray.claude-code-notifier`
 - Verify `~/.claude/notify.js` exists and `~/.claude/settings.json` contains the hook
-
-**No OS notification on macOS**
-- Install `terminal-notifier` for the best experience: `brew install terminal-notifier`
-- Without it, the extension falls back to osascript. Go to System Settings → Notifications → Script Editor to allow those notifications.
 
 **Logs**
 - Open `Help → Toggle Developer Tools → Console` to see extension logs
