@@ -151,6 +151,29 @@ describe('extension end to end', () => {
         expect(vscode.__lastWarning().text).toContain('All done');
     });
 
+    // The end-to-end version of issue #14: a real Stop payload, straight through the
+    // hook script and the watcher, has to reach the user with readable wording.
+    test('the end of a turn reaches the user once task-complete is on', async () => {
+        activate({ config: { notifyOnTaskComplete: true } });
+        const result = fireHook({
+            hook_event_name: 'Stop',
+            stop_hook_active: false,
+            last_assistant_message: 'Done, the tests pass.',
+        });
+        expect(result.status).toBe(0);
+
+        await waitFor(() => vscode.__state.warnings.length > 0);
+        expect(vscode.__lastWarning().text).toContain('Claude finished and is waiting for you');
+    });
+
+    test('the end of a turn stays quiet while task-complete is off', async () => {
+        activate({ config: { notifyOnTaskComplete: false } });
+        fireHook({ hook_event_name: 'Stop', last_assistant_message: 'Done.' });
+
+        await new Promise(resolve => setTimeout(resolve, 600));
+        expect(vscode.__state.warnings).toHaveLength(0);
+    });
+
     test('a finished subagent reaches the user once the setting is on', async () => {
         activate({ config: { notifyOnSubagentStop: true } });
         fireHook({ hook_event_name: 'SubagentStop', message: 'Subagent finished' });

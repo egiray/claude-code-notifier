@@ -110,3 +110,43 @@ test('unknown event type is passed through', () => {
     const data = JSON.parse(content);
     expect(data.event).toBe('SomeFutureEvent');
 });
+
+// The Stop payload has no "message" field; without a label the banner would
+// literally read "Stop" at the user. Real payload shape captured from
+// Claude Code 2.1.233.
+test('Stop is given readable wording instead of the raw event name', () => {
+    const payload = JSON.stringify({
+        hook_event_name: 'Stop',
+        stop_hook_active: false,
+        last_assistant_message: 'Done, the tests pass.',
+        session_id: 'abc',
+    });
+    const { code, content } = run(payload);
+    expect(code).toBe(0);
+    const data = JSON.parse(content);
+    expect(data.event).toBe('Stop');
+    expect(data.text).toBe('Claude finished and is waiting for you');
+});
+
+test('SubagentStop is given readable wording instead of the raw event name', () => {
+    const payload = JSON.stringify({
+        hook_event_name: 'SubagentStop',
+        stop_hook_active: false,
+        last_assistant_message: 'Locating git root',
+    });
+    const { code, content } = run(payload);
+    expect(code).toBe(0);
+    const data = JSON.parse(content);
+    expect(data.event).toBe('SubagentStop');
+    expect(data.text).toBe('A Claude subagent finished its task');
+});
+
+// Claude Code supplies wording for Notification events, and that always wins.
+test('a supplied message is preferred over our label', () => {
+    const payload = JSON.stringify({
+        hook_event_name: 'Stop',
+        message: 'Something Claude Code worded itself',
+    });
+    const { content } = run(payload);
+    expect(JSON.parse(content).text).toBe('Something Claude Code worded itself');
+});

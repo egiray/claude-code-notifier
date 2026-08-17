@@ -80,6 +80,16 @@ repairs it whenever the stored command drifts from what the extension ships:
         ]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"~/.claude/notify.js\" # claude-code-notifier"
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "hooks": [
@@ -97,6 +107,31 @@ repairs it whenever the stored command drifts from what the extension ships:
 A finished subagent is reported through the top-level `SubagentStop` event, **not**
 as a `Notification` matcher value. Putting `subagent_stop` in the matcher string
 matches nothing.
+
+### Which event actually means "Claude is done"
+
+`Stop`, and only `Stop`. It is raised by the part of Claude Code that runs the
+conversation, so it arrives no matter where Claude Code is running: a terminal, the
+editor panel, or the web app. It carries no wording of its own, so `notify.js`
+supplies the text.
+
+`idle_prompt` looks like the obvious candidate and is not. It comes from the terminal
+interface, so it never arrives at all when Claude Code runs in an editor panel, which
+is the whole of issue #14. Even in a terminal it is hard to trigger on purpose: it waits
+sixty seconds, and it is cancelled if you touch the keyboard, if a dialog is open, or
+if a scheduled wake-up is pending. In a real terminal session, idle for nineteen
+minutes, it never fired once. It stays registered as a harmless extra nudge for
+someone who walks away, and it is never relied on.
+
+Two more things worth knowing before wiring up a new event:
+
+- Claude's own multiple-choice question box emits nothing. `elicitation_dialog` sounds
+  like it covers it but only fires for questions coming from MCP servers.
+- Notifications for those MCP questions are held back by Claude Code for six seconds,
+  so answering quickly beats the notification. That delay is not ours and cannot be
+  shortened from here; the **Notification Delay** setting adds to it.
+
+Verified against Claude Code 2.1.233.
 
 For project-specific hooks, add the same config to `.claude/settings.local.json`.
 
@@ -116,7 +151,8 @@ code --install-extension claude-code-notifier-*.vsix
 **Simulate a hook:**
 ```bash
 echo '{"notification_type":"permission_prompt","message":"Test"}' | node ~/.claude/notify.js
-echo '{"hook_event_name":"SubagentStop","message":"Subagent done"}' | node ~/.claude/notify.js
+echo '{"hook_event_name":"Stop","last_assistant_message":"All done."}' | node ~/.claude/notify.js
+echo '{"hook_event_name":"SubagentStop","last_assistant_message":"Subagent done"}' | node ~/.claude/notify.js
 ```
 
 **Publish:**
