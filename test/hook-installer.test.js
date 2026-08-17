@@ -48,6 +48,34 @@ describe('buildSettings', () => {
         expect(settings.hooks.Notification[0].matcher).not.toContain('subagent');
     });
 
+    // Task-complete notifications used to rely on the idle_prompt notification, which
+    // the terminal REPL is the only thing that emits, so it never arrived for anyone
+    // running Claude Code in an editor panel. See issue #14.
+    test('registers a Stop hook so task completion is reported in every host', () => {
+        const { settings } = buildSettings({}, scriptPath);
+        expect(settings.hooks.Stop).toHaveLength(1);
+        expect(settings.hooks.Stop[0].matcher).toBeUndefined();
+        expect(settings.hooks.Stop[0].hooks[0].command).toContain(scriptPath);
+        expect(settings.hooks.Stop[0].hooks[0].command).toContain(SENTINEL);
+    });
+
+    // An install from before the Stop hook existed has our Notification and
+    // SubagentStop entries already in place, so nothing would look out of date
+    // unless reconciliation checks each section on its own.
+    test('adds the Stop hook to an install that predates it', () => {
+        const stale = {
+            hooks: {
+                Notification: [{ matcher: MATCHER, hooks: [{ type: 'command', command: `node "${scriptPath}" ${SENTINEL}` }] }],
+                SubagentStop: [{ hooks: [{ type: 'command', command: `node "${scriptPath}" ${SENTINEL}` }] }],
+            },
+        };
+        const { settings, installed } = buildSettings(stale, scriptPath);
+        expect(installed).toBe(true);
+        expect(settings.hooks.Stop).toHaveLength(1);
+        expect(settings.hooks.Notification).toHaveLength(1);
+        expect(settings.hooks.SubagentStop).toHaveLength(1);
+    });
+
     test('adds hooks alongside existing unrelated hooks', () => {
         const existing = {
             hooks: {
@@ -140,10 +168,10 @@ describe('buildSettings', () => {
 describe('removeManaged', () => {
     const scriptPath = '/home/user/.claude/notify.js';
 
-    test('removes both of our hook entries', () => {
+    test('removes every one of our hook entries', () => {
         const { settings: withHooks } = buildSettings({}, scriptPath);
         const { settings, removed } = removeManaged(withHooks);
-        expect(removed).toBe(2);
+        expect(removed).toBe(3);
         expect(settings.hooks).toBeUndefined();
     });
 
@@ -166,9 +194,10 @@ describe('removeManaged', () => {
         };
         const { settings: withBoth } = buildSettings(existing, scriptPath);
         const { settings, removed } = removeManaged(withBoth);
-        expect(removed).toBe(2);
+        expect(removed).toBe(3);
         expect(settings.hooks.Notification).toHaveLength(1);
         expect(settings.hooks.Notification[0].hooks[0].command).toBe('other.sh');
+        expect(settings.hooks.Stop).toBeUndefined();
         expect(settings.hooks.SubagentStop).toBeUndefined();
     });
 
@@ -294,7 +323,7 @@ describe('uninstall', () => {
         const { settings } = buildSettings({}, '/some/notify.js');
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         const { removed } = uninstall({ settingsPath });
-        expect(removed).toBe(2);
+        expect(removed).toBe(3);
         const written = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
         expect(written.hooks).toBeUndefined();
     });

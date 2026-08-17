@@ -30,7 +30,9 @@ function getSettings() {
     const allowedEvents = [];
     if (cfg.get('notifyOnPermissionRequest', true)) allowedEvents.push('permission_prompt');
     if (cfg.get('notifyOnQuestion', true)) allowedEvents.push('elicitation_dialog');
-    if (cfg.get('notifyOnTaskComplete', false)) allowedEvents.push('idle_prompt');
+    // Stop is what actually fires when Claude hands control back. idle_prompt is kept
+    // alongside it so a terminal user who walks away still gets the 60-second nudge.
+    if (cfg.get('notifyOnTaskComplete', false)) allowedEvents.push('Stop', 'idle_prompt');
     if (cfg.get('notifyOnSubagentStop', false)) allowedEvents.push('SubagentStop');
 
     return {

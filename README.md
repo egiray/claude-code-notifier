@@ -31,9 +31,9 @@ Open VS Code Settings and search for **Claude Code Notifier** to configure:
 
 **Notify on Permission Request** — Claude is asking for permission to run a command. On by default.
 
-**Notify on Question** — Claude needs to ask you a question before continuing. On by default.
+**Notify on Question** — Claude needs to ask you a question before continuing. On by default. In practice this covers questions raised by MCP servers; Claude's own multiple-choice questions do not announce themselves, so they cannot be picked up yet.
 
-**Notify on Task Complete** — Claude finished a task and is waiting for your next instruction. Off by default.
+**Notify on Task Complete** — Claude finished a task and is waiting for your next instruction. Off by default. This fires every time Claude hands control back to you, in the terminal and in the editor panel alike.
 
 **Notify on Subagent Stop** — A Claude subagent finished its task. Off by default.
 
@@ -63,9 +63,18 @@ appears and nothing reports an error.
 - Or install `terminal-notifier`, which lets banners appear as VS Code itself, with
   its icon and its notification settings: `brew install terminal-notifier`
 
+**A question from Claude never notifies me**
+
+Claude's own multiple-choice question box does not announce itself to anything outside
+Claude Code, so there is nothing for the extension to react to. Turn on **Notify on
+Task Complete** instead: you will be told the moment Claude stops and needs you, which
+covers the case you actually care about.
+
 **No notification at all**
 - Check that the extension is active: Extensions panel → search `erdemgiray.claude-code-notifier`
 - Verify `~/.claude/notify.js` exists and `~/.claude/settings.json` contains the hook
+- Restart VS Code once after updating the extension. The hooks are re-checked on
+  startup, and a release that adds a new one only takes effect after that.
 
 **Logs**
 - Open `Help → Toggle Developer Tools → Console` to see extension logs
