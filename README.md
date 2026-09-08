@@ -78,6 +78,8 @@ macOS, Windows and Linux.
 
 **Min Task Seconds** — do not announce a finished task that took less than this many
 seconds. Useful when you are watching anyway. Default: 0, which announces everything.
+Switching this on adds one extra Claude Code hook so the extension can time a task;
+setting it back to 0 removes it again.
 
 **Notification Delay** — seconds to wait before the sound and banner. If you dismiss the
 VS Code notification within this time, both are cancelled. Default: 0.

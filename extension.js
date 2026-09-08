@@ -154,18 +154,24 @@ function activate(context) {
         log(`posting notifications as ${sender}`);
     }
 
-    try {
-        installHooks({
-            settingsPath: SETTINGS_PATH,
-            notifyScriptSrc: path.join(context.extensionPath, 'hooks', 'notify.js'),
-            notifyScriptDest: NOTIFY_SCRIPT_DEST,
-        });
-    } catch (err) {
-        vscode.window.showErrorMessage(
-            `Claude Code Notifier: Hook installation failed — ${err.message}. ` +
-            'Notifications will not work until notify.js and settings.json are configured manually.'
-        );
-    }
+    const syncHooks = () => {
+        try {
+            installHooks({
+                settingsPath: SETTINGS_PATH,
+                notifyScriptSrc: path.join(context.extensionPath, 'hooks', 'notify.js'),
+                notifyScriptDest: NOTIFY_SCRIPT_DEST,
+                // The clock costs a small process on every prompt, so it is only
+                // registered for people who actually asked to skip short tasks.
+                taskClock: getConfig().get('minTaskSeconds', 0) > 0,
+            });
+        } catch (err) {
+            vscode.window.showErrorMessage(
+                `Claude Code Notifier: Hook installation failed — ${err.message}. ` +
+                'Notifications will not work until notify.js and settings.json are configured manually.'
+            );
+        }
+    };
+    syncHooks();
 
     const delivery = createCompanionDelivery({
         remote: Boolean(remoteHost),
@@ -246,6 +252,10 @@ function activate(context) {
 
             outputChannel.appendLine('');
             outputChannel.appendLine(report);
+        }),
+
+        vscode.workspace.onDidChangeConfiguration((event) => {
+            if (event.affectsConfiguration('claudeCodeNotifier.minTaskSeconds')) syncHooks();
         }),
 
         { dispose: () => stopWatcher() }

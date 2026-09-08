@@ -16,6 +16,7 @@ const state = {
     remoteName: undefined,
     extensions: new Map(),
     globalState: new Map(),
+    configListeners: [],
 };
 
 function reset(config = {}) {
@@ -29,6 +30,7 @@ function reset(config = {}) {
     state.remoteName = undefined;
     state.extensions = new Map();
     state.globalState = new Map();
+    state.configListeners = [];
 }
 
 function recordMessage(bucket, text, items) {
@@ -60,6 +62,10 @@ const vscode = {
         },
     },
     workspace: {
+        onDidChangeConfiguration: (handler) => {
+            state.configListeners.push(handler);
+            return { dispose: () => {} };
+        },
         getConfiguration: () => ({
             get: (key, fallback) => (key in state.config ? state.config[key] : fallback),
             // A test config models settings the user actually chose, which is exactly
@@ -99,7 +105,12 @@ const vscode = {
         const last = state.warnings[state.warnings.length - 1];
         if (last) last.resolve(selection);
     },
-    __setConfig: (config) => { state.config = { ...state.config, ...config }; },
+    __setConfig: (config) => {
+        state.config = { ...state.config, ...config };
+        const changed = Object.keys(config);
+        const event = { affectsConfiguration: (key) => changed.some(k => `claudeCodeNotifier.${k}` === key) };
+        state.configListeners.forEach(handler => handler(event));
+    },
     __setFocused: (value) => { state.focused = value; },
     __setRemoteName: (value) => { state.remoteName = value; },
     __installExtension: (id) => { state.extensions.set(id, { id, isActive: true }); },

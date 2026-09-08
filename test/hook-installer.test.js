@@ -165,13 +165,42 @@ describe('buildSettings', () => {
     });
 });
 
+describe('the task clock', () => {
+    const SCRIPT = '/home/user/.claude/notify.js';
+
+    test('is left out unless the user asked to skip short tasks', () => {
+        const { settings } = buildSettings({}, SCRIPT);
+        expect(settings.hooks.UserPromptSubmit).toBeUndefined();
+        expect(Object.keys(settings.hooks).sort()).toEqual(['Notification', 'Stop', 'SubagentStop']);
+    });
+
+    test('is registered once they do', () => {
+        const { settings, installed } = buildSettings({}, SCRIPT, { taskClock: true });
+        expect(installed).toBe(true);
+        expect(settings.hooks.UserPromptSubmit).toHaveLength(1);
+    });
+
+    test('is taken back out when they change their mind, leaving no empty section', () => {
+        const { settings: withClock } = buildSettings({}, SCRIPT, { taskClock: true });
+        const { settings, installed } = buildSettings(withClock, SCRIPT, { taskClock: false });
+        expect(installed).toBe(true);
+        expect('UserPromptSubmit' in settings.hooks).toBe(false);
+    });
+
+    test("someone else's UserPromptSubmit hook is never touched", () => {
+        const theirs = { hooks: { UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'their-tool' }] }] } };
+        const { settings } = buildSettings(theirs, SCRIPT);
+        expect(settings.hooks.UserPromptSubmit).toEqual(theirs.hooks.UserPromptSubmit);
+    });
+});
+
 describe('removeManaged', () => {
     const scriptPath = '/home/user/.claude/notify.js';
 
     test('removes every one of our hook entries', () => {
         const { settings: withHooks } = buildSettings({}, scriptPath);
         const { settings, removed } = removeManaged(withHooks);
-        expect(removed).toBe(4);
+        expect(removed).toBe(3);
         expect(settings.hooks).toBeUndefined();
     });
 
@@ -194,7 +223,7 @@ describe('removeManaged', () => {
         };
         const { settings: withBoth } = buildSettings(existing, scriptPath);
         const { settings, removed } = removeManaged(withBoth);
-        expect(removed).toBe(4);
+        expect(removed).toBe(3);
         expect(settings.hooks.Notification).toHaveLength(1);
         expect(settings.hooks.Notification[0].hooks[0].command).toBe('other.sh');
         expect(settings.hooks.Stop).toBeUndefined();
@@ -323,7 +352,7 @@ describe('uninstall', () => {
         const { settings } = buildSettings({}, '/some/notify.js');
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         const { removed } = uninstall({ settingsPath });
-        expect(removed).toBe(4);
+        expect(removed).toBe(3);
         const written = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
         expect(written.hooks).toBeUndefined();
     });

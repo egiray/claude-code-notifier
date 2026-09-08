@@ -93,10 +93,15 @@ Output written to `$TMPDIR/claude-notify`:
 project that actually called out rather than whichever window happens to display it —
 with several windows open, only one of them is right.
 
-`durationMs` exists because `UserPromptSubmit` is also registered: it writes a timestamp
+`durationMs` exists because `UserPromptSubmit` can also be registered: it writes a timestamp
 to `$TMPDIR/claude-notifier-task-<session id>` and never notifies. `Stop` reads that file,
 reports the elapsed time and deletes it. Without a start event there is nothing to measure
-from, which is the whole reason a fourth hook is installed.
+from, which is the whole reason a fourth hook exists.
+
+It is installed **only when `minTaskSeconds` is above zero**, and removed again when it goes
+back to zero — the hook spawns a process on every prompt, and nobody should pay that for a
+feature they have not switched on. The extension re-runs installation when that setting
+changes, so the hook appears and disappears with it.
 
 ## Hook Configuration
 
