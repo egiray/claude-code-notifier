@@ -34,68 +34,87 @@ describe('parsePayload', () => {
     describe('valid JSON payloads', () => {
         test('parses event and text fields', () => {
             const result = parsePayload('{"event":"permission_prompt","text":"Claude needs permission"}');
-            expect(result).toEqual({ event: 'permission_prompt', text: 'Claude needs permission' });
+            expect(result).toEqual({ event: 'permission_prompt', text: 'Claude needs permission', project: null, durationMs: null });
         });
 
         test('defaults event to notification when field is missing', () => {
             const result = parsePayload('{"text":"hello"}');
-            expect(result).toEqual({ event: 'notification', text: 'hello' });
+            expect(result).toEqual({ event: 'notification', text: 'hello', project: null, durationMs: null });
         });
 
         test('defaults event to notification when field is not a string', () => {
             const result = parsePayload('{"event":42,"text":"hello"}');
-            expect(result).toEqual({ event: 'notification', text: 'hello' });
+            expect(result).toEqual({ event: 'notification', text: 'hello', project: null, durationMs: null });
         });
 
         test('falls back to raw string as text when text field is missing', () => {
             const input = '{"event":"permission_prompt"}';
             const result = parsePayload(input);
-            expect(result).toEqual({ event: 'permission_prompt', text: input });
+            expect(result).toEqual({ event: 'permission_prompt', text: input, project: null, durationMs: null });
         });
 
         test('falls back to raw string as text when text field is not a string', () => {
             const input = '{"event":"permission_prompt","text":true}';
             const result = parsePayload(input);
-            expect(result).toEqual({ event: 'permission_prompt', text: input });
+            expect(result).toEqual({ event: 'permission_prompt', text: input, project: null, durationMs: null });
         });
 
         test('handles extra unknown fields gracefully', () => {
             const result = parsePayload('{"event":"elicitation_dialog","text":"A question","pid":1234}');
-            expect(result).toEqual({ event: 'elicitation_dialog', text: 'A question' });
+            expect(result).toEqual({ event: 'elicitation_dialog', text: 'A question', project: null, durationMs: null });
+        });
+    });
+
+    describe('project and duration', () => {
+        test('carries the project that called out and how long the task took', () => {
+            const result = parsePayload('{"event":"Stop","text":"done","project":"my-app","durationMs":4200}');
+            expect(result).toEqual({ event: 'Stop', text: 'done', project: 'my-app', durationMs: 4200 });
+        });
+
+        test('a payload from an older hook script simply has neither', () => {
+            const result = parsePayload('{"event":"Stop","text":"done"}');
+            expect(result.project).toBeNull();
+            expect(result.durationMs).toBeNull();
+        });
+
+        test('nonsense values are treated as absent', () => {
+            const result = parsePayload('{"event":"Stop","text":"done","project":"","durationMs":"soon"}');
+            expect(result.project).toBeNull();
+            expect(result.durationMs).toBeNull();
         });
     });
 
     describe('plain-text fallback (backward compatibility)', () => {
         test('treats plain text as notification event', () => {
             const result = parsePayload('Claude needs your permission');
-            expect(result).toEqual({ event: 'notification', text: 'Claude needs your permission' });
+            expect(result).toEqual({ event: 'notification', text: 'Claude needs your permission', project: null, durationMs: null });
         });
 
         test('trims surrounding whitespace', () => {
             const result = parsePayload('  some message  ');
-            expect(result).toEqual({ event: 'notification', text: 'some message' });
+            expect(result).toEqual({ event: 'notification', text: 'some message', project: null, durationMs: null });
         });
     });
 
     describe('edge cases', () => {
         test('returns empty text for empty string', () => {
             const result = parsePayload('');
-            expect(result).toEqual({ event: 'notification', text: '' });
+            expect(result).toEqual({ event: 'notification', text: '', project: null, durationMs: null });
         });
 
         test('returns empty text for whitespace-only string', () => {
             const result = parsePayload('   ');
-            expect(result).toEqual({ event: 'notification', text: '' });
+            expect(result).toEqual({ event: 'notification', text: '', project: null, durationMs: null });
         });
 
         test('handles malformed JSON', () => {
             const result = parsePayload('{bad json}');
-            expect(result).toEqual({ event: 'notification', text: '{bad json}' });
+            expect(result).toEqual({ event: 'notification', text: '{bad json}', project: null, durationMs: null });
         });
 
         test('handles non-string input gracefully', () => {
             const result = parsePayload(null);
-            expect(result).toEqual({ event: 'notification', text: '' });
+            expect(result).toEqual({ event: 'notification', text: '', project: null, durationMs: null });
         });
     });
 });

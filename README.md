@@ -8,6 +8,7 @@ Never miss when Claude Code needs your attention! Get instant VS Code notificati
 - **Sound + OS Notifications** — Hear it even when you're focused on another app (macOS, Windows, Linux)
 - **Smart Filtering** — Only notifies when Claude is blocked, not during autonomous tool use
 - **Zero Configuration** — Hooks install automatically on first activation
+- **Tells You Which Project** — with several windows open, you see which one is calling
 - **Works over SSH, WSL and containers** — a one-click companion delivers banners and sound to your own computer
 
 ## Installation
@@ -42,25 +43,56 @@ time, clearly labelled, then prints a report saying what worked and what to fix.
 
 ## Settings
 
-Open VS Code Settings and search for **Claude Code Notifier** to configure:
+Open VS Code Settings and search for **Claude Code Notifier**.
 
-**Notify on Permission Request** — Claude is asking for permission to run a command. On by default.
+Each event gets one choice — what should happen when it fires:
 
-**Notify on Question** — Claude needs to ask you a question before continuing. On by default. In practice this covers questions raised by MCP servers; Claude's own multiple-choice questions do not announce themselves, so they cannot be picked up yet.
+| Choice | What you get |
+|---|---|
+| **sound+banner** | A sound and a system banner, plus the VS Code notification |
+| **banner** | A system banner, plus the VS Code notification |
+| **sound** | A sound, plus the VS Code notification |
+| **editor-only** | Only the VS Code notification |
+| **off** | Nothing at all for this event |
 
-**Notify on Task Complete** — Claude finished a task and is waiting for your next instruction. Off by default. This fires every time Claude hands control back to you, in the terminal and in the editor panel alike.
+And the four events, with what they are set to out of the box:
 
-**Notify on Subagent Stop** — A Claude subagent finished its task. Off by default.
+| Event | Default | Sound |
+|---|---|---|
+| **Permission Request** — Claude wants to run a command | sound+banner | Alert |
+| **Question** — Claude needs an answer before continuing | sound+banner | Chime |
+| **Task Complete** — Claude finished and is waiting for you | off | Default |
+| **Subagent Stop** — a subagent finished its task | off | Knock |
 
-**System Notification** — Show an OS-level pop-up in addition to the VS Code notification. On by default.
+Question notifications in practice cover questions raised by MCP servers; Claude's own
+multiple-choice questions do not announce themselves, so they cannot be picked up yet.
 
-**Sound** — Play a sound when Claude needs your attention. On by default.
+### Sounds
 
-**Notification Delay** — Seconds to wait before playing sound and showing the OS notification. If you dismiss the VS Code popup within this time, the sound and OS notification are cancelled. Default: 0 (immediate).
+Each event can have its own sound, so you learn what happened without looking:
+**Default**, **Chime**, **Bell**, **Knock**, **Alert**. Nothing is downloaded — these
+are the sounds your machine already ships, so each one is the native equivalent on
+macOS, Windows and Linux.
 
-**Suppress When Focused** — When enabled, skips the sound and OS notification if VS Code is already your active window. The VS Code popup still appears. Off by default.
+### The rest
 
-## Troubleshooting
+**Min Task Seconds** — do not announce a finished task that took less than this many
+seconds. Useful when you are watching anyway. Default: 0, which announces everything.
+
+**Notification Delay** — seconds to wait before the sound and banner. If you dismiss the
+VS Code notification within this time, both are cancelled. Default: 0.
+
+**Suppress When Focused** — skip the sound and banner when VS Code is already your
+active window. The VS Code notification still appears. Off by default.
+
+### Upgrading from an earlier version
+
+Nothing to do. The older settings — the four on/off switches plus the global sound and
+system-notification toggles — still decide what happens if you had set them, so your
+setup behaves exactly as it did. They are marked as replaced in the settings list; the
+moment you pick a level for an event, that choice takes over for it.
+
+## Troubleshooting## Troubleshooting
 
 Start with **Claude Code: Diagnose Notifications** from the command palette — it
 checks the setup, sends a labelled test of each notification type, and tells you

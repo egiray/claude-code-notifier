@@ -171,7 +171,7 @@ describe('removeManaged', () => {
     test('removes every one of our hook entries', () => {
         const { settings: withHooks } = buildSettings({}, scriptPath);
         const { settings, removed } = removeManaged(withHooks);
-        expect(removed).toBe(3);
+        expect(removed).toBe(4);
         expect(settings.hooks).toBeUndefined();
     });
 
@@ -194,7 +194,7 @@ describe('removeManaged', () => {
         };
         const { settings: withBoth } = buildSettings(existing, scriptPath);
         const { settings, removed } = removeManaged(withBoth);
-        expect(removed).toBe(3);
+        expect(removed).toBe(4);
         expect(settings.hooks.Notification).toHaveLength(1);
         expect(settings.hooks.Notification[0].hooks[0].command).toBe('other.sh');
         expect(settings.hooks.Stop).toBeUndefined();
@@ -323,7 +323,7 @@ describe('uninstall', () => {
         const { settings } = buildSettings({}, '/some/notify.js');
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         const { removed } = uninstall({ settingsPath });
-        expect(removed).toBe(3);
+        expect(removed).toBe(4);
         const written = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
         expect(written.hooks).toBeUndefined();
     });

@@ -2,7 +2,7 @@
   "name": "claude-code-notifier",
   "displayName": "Claude Code Notifier",
   "description": "Get VS Code notifications when Claude Code needs your attention - never miss a question or permission request",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "publisher": "erdemgiray",
   "author": {
     "name": "Erdem Giray"
@@ -57,47 +57,212 @@
     "configuration": {
       "title": "Claude Code Notifier",
       "properties": {
-        "claudeCodeNotifier.notifyOnPermissionRequest": {
-          "type": "boolean",
-          "default": true,
-          "description": "Notify when Claude is asking for permission to run a command."
+        "claudeCodeNotifier.permissionRequest.level": {
+          "type": "string",
+          "enum": [
+            "sound+banner",
+            "banner",
+            "sound",
+            "editor-only",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Show a system banner, alongside the VS Code notification.",
+            "Play a sound, alongside the VS Code notification.",
+            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Do not notify for this event at all."
+          ],
+          "default": "sound+banner",
+          "description": "What happens when Claude asks for permission to run a command."
         },
-        "claudeCodeNotifier.notifyOnQuestion": {
-          "type": "boolean",
-          "default": true,
-          "description": "Notify when Claude needs to ask you a question before continuing. Covers questions from MCP servers; Claude's own multiple-choice questions do not announce themselves."
+        "claudeCodeNotifier.permissionRequest.sound": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Chime",
+            "Bell",
+            "Knock",
+            "Alert"
+          ],
+          "enumDescriptions": [
+            "The system's standard notification sound.",
+            "A brighter two-tone chime.",
+            "A short, clear bell.",
+            "A soft, low knock.",
+            "An insistent sound, for things that block you."
+          ],
+          "default": "Alert",
+          "description": "The sound for a permission request."
         },
-        "claudeCodeNotifier.notifyOnTaskComplete": {
-          "type": "boolean",
-          "default": false,
-          "description": "Notify when Claude finishes a task and is waiting for your next instruction. Works in the terminal and in the editor panel."
+        "claudeCodeNotifier.question.level": {
+          "type": "string",
+          "enum": [
+            "sound+banner",
+            "banner",
+            "sound",
+            "editor-only",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Show a system banner, alongside the VS Code notification.",
+            "Play a sound, alongside the VS Code notification.",
+            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Do not notify for this event at all."
+          ],
+          "default": "sound+banner",
+          "description": "What happens when Claude needs to ask you a question before continuing. Covers questions from MCP servers; Claude's own multiple-choice questions do not announce themselves."
         },
-        "claudeCodeNotifier.notifyOnSubagentStop": {
-          "type": "boolean",
-          "default": false,
-          "description": "Notify when a Claude subagent finishes its task."
+        "claudeCodeNotifier.question.sound": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Chime",
+            "Bell",
+            "Knock",
+            "Alert"
+          ],
+          "enumDescriptions": [
+            "The system's standard notification sound.",
+            "A brighter two-tone chime.",
+            "A short, clear bell.",
+            "A soft, low knock.",
+            "An insistent sound, for things that block you."
+          ],
+          "default": "Chime",
+          "description": "The sound for a question."
         },
-        "claudeCodeNotifier.systemNotification": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show an OS-level notification pop-up in addition to the VS Code notification. Works on macOS, Windows, and Linux."
+        "claudeCodeNotifier.taskComplete.level": {
+          "type": "string",
+          "enum": [
+            "sound+banner",
+            "banner",
+            "sound",
+            "editor-only",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Show a system banner, alongside the VS Code notification.",
+            "Play a sound, alongside the VS Code notification.",
+            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Do not notify for this event at all."
+          ],
+          "default": "off",
+          "description": "What happens when Claude finishes a task and is waiting for your next instruction. Works in the terminal and in the editor panel."
         },
-        "claudeCodeNotifier.sound": {
-          "type": "boolean",
-          "default": true,
-          "description": "Play a sound when Claude needs your attention. Works on macOS, Windows, and Linux."
+        "claudeCodeNotifier.taskComplete.sound": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Chime",
+            "Bell",
+            "Knock",
+            "Alert"
+          ],
+          "enumDescriptions": [
+            "The system's standard notification sound.",
+            "A brighter two-tone chime.",
+            "A short, clear bell.",
+            "A soft, low knock.",
+            "An insistent sound, for things that block you."
+          ],
+          "default": "Default",
+          "description": "The sound for a finished task."
+        },
+        "claudeCodeNotifier.subagentStop.level": {
+          "type": "string",
+          "enum": [
+            "sound+banner",
+            "banner",
+            "sound",
+            "editor-only",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Show a system banner, alongside the VS Code notification.",
+            "Play a sound, alongside the VS Code notification.",
+            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Do not notify for this event at all."
+          ],
+          "default": "off",
+          "description": "What happens when a Claude subagent finishes its task."
+        },
+        "claudeCodeNotifier.subagentStop.sound": {
+          "type": "string",
+          "enum": [
+            "Default",
+            "Chime",
+            "Bell",
+            "Knock",
+            "Alert"
+          ],
+          "enumDescriptions": [
+            "The system's standard notification sound.",
+            "A brighter two-tone chime.",
+            "A short, clear bell.",
+            "A soft, low knock.",
+            "An insistent sound, for things that block you."
+          ],
+          "default": "Knock",
+          "description": "The sound for a finished subagent."
+        },
+        "claudeCodeNotifier.minTaskSeconds": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 600,
+          "description": "Do not announce a finished task that took less than this many seconds. 0 announces every task."
         },
         "claudeCodeNotifier.notificationDelay": {
           "type": "number",
           "default": 0,
           "minimum": 0,
           "maximum": 60,
-          "description": "Seconds to wait before playing sound and showing the OS notification. If you dismiss the VS Code popup within this time, the sound and OS notification are cancelled."
+          "description": "Seconds to wait before playing sound and showing the system banner. If you dismiss the VS Code notification within this time, both are cancelled."
         },
         "claudeCodeNotifier.suppressWhenFocused": {
           "type": "boolean",
           "default": false,
-          "description": "Skip the system notification and sound when VS Code is already the active window. The VS Code popup will still appear."
+          "description": "Skip the sound and system banner when VS Code is already the active window. The VS Code notification still appears."
+        },
+        "claudeCodeNotifier.notifyOnPermissionRequest": {
+          "type": "boolean",
+          "default": true,
+          "description": "Notify when Claude is asking for permission to run a command.",
+          "deprecationMessage": "Replaced by the per-event settings above. Your existing choice is still honoured until you set one of those."
+        },
+        "claudeCodeNotifier.notifyOnQuestion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Notify when Claude needs to ask you a question before continuing.",
+          "deprecationMessage": "Replaced by the per-event settings above. Your existing choice is still honoured until you set one of those."
+        },
+        "claudeCodeNotifier.notifyOnTaskComplete": {
+          "type": "boolean",
+          "default": false,
+          "description": "Notify when Claude finishes a task.",
+          "deprecationMessage": "Replaced by the per-event settings above. Your existing choice is still honoured until you set one of those."
+        },
+        "claudeCodeNotifier.notifyOnSubagentStop": {
+          "type": "boolean",
+          "default": false,
+          "description": "Notify when a Claude subagent finishes its task.",
+          "deprecationMessage": "Replaced by the per-event settings above. Your existing choice is still honoured until you set one of those."
+        },
+        "claudeCodeNotifier.systemNotification": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show an OS-level notification in addition to the VS Code notification.",
+          "deprecationMessage": "Replaced by the per-event settings above. Your existing choice is still honoured until you set one of those."
+        },
+        "claudeCodeNotifier.sound": {
+          "type": "boolean",
+          "default": true,
+          "description": "Play a sound when Claude needs your attention.",
+          "deprecationMessage": "Replaced by the per-event settings above. Your existing choice is still honoured until you set one of those."
         }
       }
     }
