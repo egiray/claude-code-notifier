@@ -34,10 +34,20 @@ VS Code popup + system banner + sound
 | `lib/companion.js` | Hands delivery to the companion on the user's own machine |
 | `companion/extension.js` | The companion extension — the pair of hands on that machine |
 | `scripts/sync-shared.js` | Copies the shared notification code into the companion package |
+| `lib/settings.js` | What each event should do, including the older settings it replaced |
+| `lib/sounds.js` | Named sounds mapped to what each operating system ships |
 | `lib/payload.js` | Pure functions: parse trigger file, match event names |
 | `hooks/notify.js` | Claude Code hook script — reads stdin, writes trigger file |
 
 ### Two behaviours worth knowing
+
+**One choice per event, and the old settings still decide for anyone who set them.**
+`lib/settings.js` prefers a level the user explicitly chose; failing that, it translates
+whatever they had set among the four on/off switches and the two global toggles. The
+translation is lossless, which is why `editor-only` exists — turning both global toggles
+off used to leave the VS Code notification on its own, and that had to keep working. The
+old keys stay in the manifest marked as replaced, so nothing breaks and nothing is
+silently rewritten in anyone's settings file.
 
 **Popups are fire-and-forget.** The extension never waits for the user to click a
 popup before handling the next event. An earlier version did, which meant an
@@ -76,8 +86,17 @@ Claude Code sends a JSON object to hook stdin. `notify.js` extracts:
 Output written to `$TMPDIR/claude-notify`:
 
 ```json
-{"event": "permission_prompt", "text": "Allow Bash command?"}
+{"event": "Stop", "text": "Claude finished...", "project": "billing-api", "durationMs": 42000}
 ```
+
+`project` is the basename of the hook's working directory, so a notification names the
+project that actually called out rather than whichever window happens to display it —
+with several windows open, only one of them is right.
+
+`durationMs` exists because `UserPromptSubmit` is also registered: it writes a timestamp
+to `$TMPDIR/claude-notifier-task-<session id>` and never notifies. `Stop` reads that file,
+reports the elapsed time and deletes it. Without a start event there is nothing to measure
+from, which is the whole reason a fourth hook is installed.
 
 ## Hook Configuration
 
@@ -219,6 +238,8 @@ Everything except "did a banner physically appear on screen" is covered by
 | `test/diagnostics.test.js` | Setup checks, live checks, and report wording |
 | `test/remote-host.test.js` | Recognising a remote window and what the user is told |
 | `test/companion.test.js` | Routing to the companion, detecting it, diagnosing through it |
+| `test/settings.test.js` | Per-event levels and the translation of the old settings |
+| `test/sounds.test.js` | Named sounds resolving per platform |
 | `test/payload.test.js` | Trigger file parsing and event-name matching |
 | `test/notify.test.js` | `hooks/notify.js` stdin parsing and file write |
 

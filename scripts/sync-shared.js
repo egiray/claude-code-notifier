@@ -13,6 +13,7 @@ const ROOT = path.join(__dirname, '..');
 const SHARED = [
     ['lib/system-notification.js', 'companion/lib/system-notification.js'],
     ['lib/host-app.js', 'companion/lib/host-app.js'],
+    ['lib/sounds.js', 'companion/lib/sounds.js'],
     ['icon.png', 'companion/icon.png'],
     ['LICENSE', 'companion/LICENSE'],
 ];

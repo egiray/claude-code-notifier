@@ -62,6 +62,9 @@ const vscode = {
     workspace: {
         getConfiguration: () => ({
             get: (key, fallback) => (key in state.config ? state.config[key] : fallback),
+            // A test config models settings the user actually chose, which is exactly
+            // what inspect() reports as explicitly set.
+            inspect: (key) => (key in state.config ? { globalValue: state.config[key] } : {}),
         }),
     },
     commands: {

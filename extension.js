@@ -9,6 +9,7 @@ const { createNotificationController } = require('./lib/notification-controller'
 const { createTriggerWatcher } = require('./lib/trigger-watcher');
 const { runDiagnostics } = require('./lib/diagnostics');
 const { describeRemoteHost, companionOfferMessage } = require('./lib/remote-host');
+const { buildEventSettings } = require('./lib/settings');
 const {
     createCompanionDelivery, companionNotifyAdapter, isCompanionInstalled, COMPANION_ID,
 } = require('./lib/companion');
@@ -43,18 +44,23 @@ function getConfig() {
 
 function getSettings() {
     const cfg = getConfig();
-    const allowedEvents = [];
-    if (cfg.get('notifyOnPermissionRequest', true)) allowedEvents.push('permission_prompt');
-    if (cfg.get('notifyOnQuestion', true)) allowedEvents.push('elicitation_dialog');
-    // Stop is what actually fires when Claude hands control back. idle_prompt is kept
-    // alongside it so a terminal user who walks away still gets the 60-second nudge.
-    if (cfg.get('notifyOnTaskComplete', false)) allowedEvents.push('Stop', 'idle_prompt');
-    if (cfg.get('notifyOnSubagentStop', false)) allowedEvents.push('SubagentStop');
+
+    // Whether a setting was actually chosen — not merely left at its default — is what
+    // decides between the new per-event choice and the older switches it replaced.
+    const inspector = {
+        value: (key, fallback) => cfg.get(key, fallback),
+        explicit: (key) => {
+            const info = cfg.inspect(key);
+            if (!info) return undefined;
+            if (info.workspaceFolderValue !== undefined) return info.workspaceFolderValue;
+            if (info.workspaceValue !== undefined) return info.workspaceValue;
+            return info.globalValue;
+        },
+    };
 
     return {
-        allowedEvents,
-        systemNotification: cfg.get('systemNotification', true),
-        sound: cfg.get('sound', true),
+        events: buildEventSettings(inspector),
+        minTaskSeconds: cfg.get('minTaskSeconds', 0) || 0,
         delayMs: (cfg.get('notificationDelay', 0) || 0) * 1000,
         suppressWhenFocused: cfg.get('suppressWhenFocused', false),
         windowFocused: vscode.window.state.focused,

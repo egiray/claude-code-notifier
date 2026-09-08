@@ -234,10 +234,11 @@ describe('extension end to end', () => {
         fireHook({ notification_type: 'elicitation_dialog', message: 'Third request' });
         await waitFor(() => vscode.__state.warnings.length === 3);
 
+        // The hook runs in this repo, so every notification is stamped with its name.
         expect(vscode.__state.warnings.map(w => w.text)).toEqual([
-            '🔔 Claude Code: First request',
-            '🔔 Claude Code: Second request',
-            '🔔 Claude Code: Third request',
+            '🔔 Claude Code · claude-code-notifier: First request',
+            '🔔 Claude Code · claude-code-notifier: Second request',
+            '🔔 Claude Code · claude-code-notifier: Third request',
         ]);
     });
 
@@ -263,6 +264,37 @@ describe('extension end to end', () => {
         await vscode.commands.executeCommand('claude-notifier.notify');
         await waitFor(() => vscode.__state.warnings.length > 0);
         expect(vscode.__lastWarning().text).toContain('Test: Claude needs your permission');
+    });
+
+    test('a task that finished too quickly is not announced', async () => {
+        activate({ config: { 'taskComplete.level': 'sound+banner', minTaskSeconds: 30 } });
+
+        // The real hook starts the clock, then reports the finish a moment later.
+        fireHook({ hook_event_name: 'UserPromptSubmit', session_id: 'quick' });
+        fireHook({ hook_event_name: 'Stop', session_id: 'quick', last_assistant_message: 'Done.' });
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+        expect(vscode.__state.warnings).toHaveLength(0);
+    });
+
+    test('the clock hook never notifies on its own', async () => {
+        activate({ config: { 'taskComplete.level': 'sound+banner' } });
+        fireHook({ hook_event_name: 'UserPromptSubmit', session_id: 'silent' });
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+        expect(vscode.__state.warnings).toHaveLength(0);
+    });
+
+    test('an existing install keeps behaving exactly as before', async () => {
+        // Someone who turned task-complete on and sound off in the old settings.
+        activate({ config: { notifyOnTaskComplete: true, sound: false } });
+        fireHook({ hook_event_name: 'Stop', last_assistant_message: 'Done.' });
+
+        await waitFor(() => vscode.__state.warnings.length > 0);
+        expect(execFile).toHaveBeenCalled();
+        // A banner, but nothing played — which is what those two settings meant.
+        const commands = execFile.mock.calls.map(c => c[0]);
+        expect(commands).not.toContain('afplay');
     });
 
     // ── remote windows ──────────────────────────────────────────────────────

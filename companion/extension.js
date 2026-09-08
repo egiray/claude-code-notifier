@@ -22,12 +22,12 @@ function log(message) {
     console.log(`[claude-code-notifier-companion] ${message}`);
 }
 
-function deliver({ text, notification = true, sound = true } = {}) {
-    if (sound) playSound(() => {});
+function deliver({ text, notification = true, sound = true, soundName, title } = {}) {
+    if (sound) playSound(soundName, () => {});
     if (!notification) return Promise.resolve({ method: 'sound-only' });
 
     return new Promise((resolve) => {
-        showOsNotification(String(text || ''), (err, info) => {
+        showOsNotification(String(text || ''), { title }, (err, info) => {
             const method = (info && info.method) || 'unknown';
             if (err) log(`banner failed via ${method}: ${err.message}`);
             resolve({ method, error: err ? err.message : null });

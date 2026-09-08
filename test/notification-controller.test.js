@@ -1,4 +1,14 @@
 const { createNotificationController } = require('../lib/notification-controller');
+const { buildEventSettings } = require('../lib/settings');
+
+// The settings the extension would hand over for a default install: permission and
+// question announce themselves fully, task completion stays quiet.
+function defaultEvents(overrides = {}) {
+    return buildEventSettings({
+        explicit: (key) => overrides[key],
+        value: (key, fallback) => (key in overrides ? overrides[key] : fallback),
+    });
+}
 
 function makeFs(initial = '') {
     let content = initial;
@@ -27,9 +37,8 @@ function makeHarness({ settings = {}, initialContent = '' } = {}) {
         notifyFile: '/tmp/claude-notify',
         fsImpl,
         getSettings: () => ({
-            allowedEvents: ['permission_prompt', 'elicitation_dialog'],
-            systemNotification: true,
-            sound: true,
+            events: defaultEvents(),
+            minTaskSeconds: 0,
             delayMs: 0,
             suppressWhenFocused: false,
             windowFocused: false,
@@ -75,7 +84,10 @@ describe('delivery', () => {
         expect(result.status).toBe('shown');
         expect(h.popups).toHaveLength(1);
         expect(h.popups[0].text).toContain('Need permission');
-        expect(h.sent).toEqual([{ text: 'Need permission', options: { notification: true, sound: true } }]);
+        expect(h.sent).toEqual([{
+            text: 'Need permission',
+            options: { notification: true, sound: true, soundName: 'Alert', title: null },
+        }]);
     });
 
     test('clears the trigger file as soon as it is read', () => {
@@ -141,7 +153,7 @@ describe('filtering', () => {
     });
 
     test('matches SubagentStop against the snake_case setting name', () => {
-        const h = makeHarness({ settings: { allowedEvents: ['subagent_stop'] } });
+        const h = makeHarness({ settings: { events: defaultEvents({ 'subagentStop.level': 'sound+banner' }) } });
         expect(h.fire({ event: 'SubagentStop', text: 'Subagent done' }).status).toBe('shown');
     });
 });
@@ -197,18 +209,98 @@ describe('delayed notifications', () => {
     });
 });
 
+describe('what each level delivers', () => {
+    test('"sound" plays but does not put a banner on screen', () => {
+        const h = makeHarness({ settings: { events: defaultEvents({ 'permissionRequest.level': 'sound' }) } });
+        h.fire({ event: 'permission_prompt', text: 'Need permission' });
+        expect(h.sent[0].options).toMatchObject({ notification: false, sound: true });
+        expect(h.popups).toHaveLength(1);
+    });
+
+    test('"banner" shows but stays quiet', () => {
+        const h = makeHarness({ settings: { events: defaultEvents({ 'permissionRequest.level': 'banner' }) } });
+        h.fire({ event: 'permission_prompt', text: 'Need permission' });
+        expect(h.sent[0].options).toMatchObject({ notification: true, sound: false });
+    });
+
+    test('"editor-only" leaves the machine alone and only shows the VS Code notification', () => {
+        const h = makeHarness({ settings: { events: defaultEvents({ 'permissionRequest.level': 'editor-only' }) } });
+        h.fire({ event: 'permission_prompt', text: 'Need permission' });
+        expect(h.sent).toHaveLength(0);
+        expect(h.popups).toHaveLength(1);
+    });
+
+    test('"off" says nothing at all', () => {
+        const h = makeHarness({ settings: { events: defaultEvents({ 'permissionRequest.level': 'off' }) } });
+        const result = h.fire({ event: 'permission_prompt', text: 'Need permission' });
+        expect(result.status).toBe('filtered');
+        expect(h.popups).toHaveLength(0);
+    });
+
+    test('each event carries its own sound', () => {
+        const h = makeHarness({ settings: { events: defaultEvents({ 'taskComplete.level': 'sound+banner' }) } });
+        h.fire({ event: 'permission_prompt', text: 'Need permission' });
+        h.fire({ event: 'Stop', text: 'All done' });
+        expect(h.sent.map(s => s.options.soundName)).toEqual(['Alert', 'Default']);
+    });
+});
+
+describe('short tasks', () => {
+    const events = { events: defaultEvents({ 'taskComplete.level': 'sound+banner' }) };
+
+    test('a task that finished quicker than the threshold is left alone', () => {
+        const h = makeHarness({ settings: { ...events, minTaskSeconds: 10 } });
+        const result = h.fire({ event: 'Stop', text: 'All done', durationMs: 3000 });
+        expect(result.status).toBe('too-short');
+        expect(h.popups).toHaveLength(0);
+        expect(h.sent).toHaveLength(0);
+    });
+
+    test('a longer task still announces itself', () => {
+        const h = makeHarness({ settings: { ...events, minTaskSeconds: 10 } });
+        expect(h.fire({ event: 'Stop', text: 'All done', durationMs: 30000 }).status).toBe('shown');
+    });
+
+    test('with no threshold set, every task announces itself', () => {
+        const h = makeHarness({ settings: events });
+        expect(h.fire({ event: 'Stop', text: 'All done', durationMs: 5 }).status).toBe('shown');
+    });
+
+    test('an unmeasured task is never suppressed', () => {
+        const h = makeHarness({ settings: { ...events, minTaskSeconds: 10 } });
+        expect(h.fire({ event: 'Stop', text: 'All done' }).status).toBe('shown');
+    });
+});
+
+describe('which project called out', () => {
+    test('the project is named in both the popup and the banner', () => {
+        const h = makeHarness();
+        h.fire({ event: 'permission_prompt', text: 'Need permission', project: 'billing-api' });
+        expect(h.popups[0].text).toContain('billing-api');
+        expect(h.sent[0].options.title).toBe('billing-api');
+    });
+
+    test('without a project it reads as it always did', () => {
+        const h = makeHarness();
+        h.fire({ event: 'permission_prompt', text: 'Need permission' });
+        expect(h.popups[0].text).toBe('🔔 Claude Code: Need permission');
+    });
+});
+
 describe('suppressWhenFocused', () => {
     test('still shows the popup but silences sound and banner', () => {
         const h = makeHarness({ settings: { suppressWhenFocused: true, windowFocused: true } });
         h.fire({ event: 'permission_prompt', text: 'Need permission' });
 
         expect(h.popups).toHaveLength(1);
-        expect(h.sent[0].options).toEqual({ notification: false, sound: false });
+        // With both channels silenced there is nothing to deliver, so the notifier is
+        // not troubled at all — which in a remote window saves a pointless round trip.
+        expect(h.sent).toHaveLength(0);
     });
 
     test('does not silence anything when the window is in the background', () => {
         const h = makeHarness({ settings: { suppressWhenFocused: true, windowFocused: false } });
         h.fire({ event: 'permission_prompt', text: 'Need permission' });
-        expect(h.sent[0].options).toEqual({ notification: true, sound: true });
+        expect(h.sent[0].options).toMatchObject({ notification: true, sound: true });
     });
 });
