@@ -8,6 +8,7 @@ Never miss when Claude Code needs your attention! Get instant VS Code notificati
 - **Sound + OS Notifications** — Hear it even when you're focused on another app (macOS, Windows, Linux)
 - **Smart Filtering** — Only notifies when Claude is blocked, not during autonomous tool use
 - **Zero Configuration** — Hooks install automatically on first activation
+- **Works over SSH, WSL and containers** — a one-click companion delivers banners and sound to your own computer
 
 ## Installation
 
@@ -16,6 +17,20 @@ Install from the VS Code Marketplace — that's it. The extension sets up everyt
 ```bash
 code --install-extension erdemgiray.claude-code-notifier
 ```
+
+## Connected to a remote machine?
+
+If your window is attached to a remote machine over SSH, to WSL, to a container or to a
+Codespace, VS Code runs this extension over there — so a banner would appear on that
+machine instead of on yours.
+
+The extension notices and offers to install **Claude Code Notifier (Local)**, a small
+companion that runs on your own computer and receives the banner and sound for you. One
+click, nothing to configure. Say "Don't ask again" and it never comes back; the
+notification inside VS Code keeps working either way.
+
+Banners cannot be delivered when a Codespace is opened in a **browser** rather than in
+desktop VS Code, because the browser side cannot reach your operating system.
 
 ## Testing
 
@@ -66,16 +81,17 @@ appears and nothing reports an error.
 **I am connected to a remote machine (SSH, WSL, a container, a Codespace) and only
 the VS Code popup appears**
 
-VS Code runs extensions where your code lives, not where you are sitting. In a remote
-window this extension runs on the remote machine, so the banner and the sound are
-produced over there — on a machine that usually has no screen and no speakers. Nothing
-reaches your own computer, and the diagnostics will report the banner and sound as
-failed because the remote machine really cannot deliver them.
+The companion extension is missing. VS Code runs extensions where your code lives, so
+in a remote window this extension runs on the remote machine — and a banner asked of
+that machine reaches nobody, because it has no screen and no speakers.
 
-The notification inside VS Code is drawn by the editor on your own computer, so it
-still works and is your reliable signal in a remote window. Delivering banners and
-sound to your own computer from a remote window is not something the extension can do
-yet.
+Install **Claude Code Notifier (Local)** and the banner and sound arrive on your own
+computer instead. The extension offers it to you in a remote window; if you dismissed
+that, run **Claude Code: Diagnose Notifications** — the report says whether the
+companion is installed.
+
+Once it is installed, the diagnostics test the real path: the banner and sound it fires
+are delivered to your computer, so what you see in the report is what you will get.
 
 **A question from Claude never notifies me**
 

@@ -13,3 +13,5 @@ CONTRIBUTING.md
 .claude
 .claude/**
 package-lock.json
+companion/**
+scripts/**

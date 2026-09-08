@@ -2,7 +2,7 @@
   "name": "claude-code-notifier",
   "displayName": "Claude Code Notifier",
   "description": "Get VS Code notifications when Claude Code needs your attention - never miss a question or permission request",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "publisher": "erdemgiray",
   "author": {
     "name": "Erdem Giray"
@@ -32,7 +32,9 @@
     "onStartupFinished"
   ],
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "package": "vsce package",
+    "package:companion": "cd companion && node ../scripts/sync-shared.js && vsce package"
   },
   "jest": {
     "testEnvironment": "node",

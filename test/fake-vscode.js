@@ -14,6 +14,8 @@ const state = {
     config: {},
     focused: false,
     remoteName: undefined,
+    extensions: new Map(),
+    globalState: new Map(),
 };
 
 function reset(config = {}) {
@@ -25,6 +27,8 @@ function reset(config = {}) {
     state.config = { ...config };
     state.focused = false;
     state.remoteName = undefined;
+    state.extensions = new Map();
+    state.globalState = new Map();
 }
 
 function recordMessage(bucket, text, items) {
@@ -65,10 +69,16 @@ const vscode = {
             state.commands.set(id, handler);
             return { dispose: () => state.commands.delete(id) };
         },
+        // Real VS Code rejects an unknown command, which is exactly how the absence of
+        // the companion extension is detected — so the stand-in must reject too.
         executeCommand: (id, ...args) => {
             const handler = state.commands.get(id);
-            return handler ? handler(...args) : undefined;
+            if (!handler) return Promise.reject(new Error(`command '${id}' not found`));
+            return Promise.resolve(handler(...args));
         },
+    },
+    extensions: {
+        getExtension: (id) => state.extensions.get(id),
     },
     Uri: { parse: (value) => ({ value }) },
     env: {
@@ -89,6 +99,16 @@ const vscode = {
     __setConfig: (config) => { state.config = { ...state.config, ...config }; },
     __setFocused: (value) => { state.focused = value; },
     __setRemoteName: (value) => { state.remoteName = value; },
+    __installExtension: (id) => { state.extensions.set(id, { id, isActive: true }); },
+    __globalState: () => ({
+        get: (key, fallback) => (state.globalState.has(key) ? state.globalState.get(key) : fallback),
+        update: (key, value) => { state.globalState.set(key, value); return Promise.resolve(); },
+    }),
+    __lastInfo: () => state.infos[state.infos.length - 1],
+    __answerLastInfo: (selection) => {
+        const last = state.infos[state.infos.length - 1];
+        if (last) last.resolve(selection);
+    },
 };
 
 module.exports = vscode;

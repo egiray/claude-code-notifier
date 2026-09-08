@@ -8,19 +8,33 @@ const { resolveSenderBundleId } = require('./lib/host-app');
 const { createNotificationController } = require('./lib/notification-controller');
 const { createTriggerWatcher } = require('./lib/trigger-watcher');
 const { runDiagnostics } = require('./lib/diagnostics');
-const { describeRemoteHost, remoteWarningMessage } = require('./lib/remote-host');
+const { describeRemoteHost, companionOfferMessage } = require('./lib/remote-host');
+const {
+    createCompanionDelivery, companionNotifyAdapter, isCompanionInstalled, COMPANION_ID,
+} = require('./lib/companion');
 
 const NOTIFY_FILE = path.join(os.tmpdir(), 'claude-notify');
 const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
 const NOTIFY_SCRIPT_DEST = path.join(os.homedir(), '.claude', 'notify.js');
+const NEVER_OFFER_COMPANION = 'companion.neverOffer';
 
 let watcher = null;
 let outputChannel = null;
 let warnedAboutOsNotification = false;
 let remoteHost = null;
+let companionInstalled = false;
+let offeredCompanion = false;
+let globalState = null;
+let active = false;
 
 function log(message) {
     console.log(`[claude-code-notifier] ${message}`);
+}
+
+// VS Code routes a command to whichever side registered it, so this is how the
+// companion on the user's own machine is reached from here.
+function runCommand(command, payload) {
+    return Promise.resolve(vscode.commands.executeCommand(command, payload));
 }
 
 function getConfig() {
@@ -48,29 +62,84 @@ function getSettings() {
 }
 
 // A silent OS-notification failure is the hardest problem to report, so surface it
-// once per session and point at the diagnostics. On a window attached to a remote
-// machine the cause is known up front, so say that instead of the generic failure.
-function reportOsNotificationFailure(err, info) {
-    log(`OS notification failed via ${info.method || 'unknown'}: ${err.message}`);
+// once per session and point at the diagnostics.
+function warnOnce(message) {
     if (warnedAboutOsNotification) return;
     warnedAboutOsNotification = true;
-    const message = remoteWarningMessage(remoteHost)
-        || `Claude Code Notifier: the system notification could not be shown (${info.method || 'unknown'}).`;
-    vscode.window.showWarningMessage(
-        message,
-        'Run diagnostics'
-    ).then(selection => {
+    vscode.window.showWarningMessage(message, 'Run diagnostics').then(selection => {
         if (selection === 'Run diagnostics') vscode.commands.executeCommand('claude-notifier.diagnose');
     });
 }
 
+// Reached when the banner was asked of this machine. In a remote window with no
+// companion that was always going to fail, and the offer is the useful thing to say.
+function reportOsNotificationFailure(err, info) {
+    log(`OS notification failed via ${info.method || 'unknown'}: ${err.message}`);
+    if (remoteHost && !companionInstalled) {
+        offerCompanion();
+        return;
+    }
+    warnOnce(`Claude Code Notifier: the system notification could not be shown (${info.method || 'unknown'}).`);
+}
+
+// The companion reached the user's own computer but its operating system refused the
+// banner — an ordinary local problem, so it reads like one.
+function reportCompanionFailure(result) {
+    log(`companion could not show the banner: ${result.error}`);
+    warnOnce(`Claude Code Notifier: the companion could not show the banner on your computer (${result.method}).`);
+}
+
+// Offered at most once per session, and never again if the user says so.
+async function offerCompanion() {
+    if (!remoteHost || companionInstalled || offeredCompanion) return;
+    if (globalState && globalState.get(NEVER_OFFER_COMPANION)) return;
+    offeredCompanion = true;
+
+    const install = 'Install companion';
+    const never = "Don't ask again";
+    const choice = await vscode.window.showInformationMessage(
+        companionOfferMessage(remoteHost), install, never
+    );
+
+    if (choice === install) {
+        try {
+            await vscode.commands.executeCommand('workbench.extensions.installExtension', COMPANION_ID);
+            companionInstalled = true;
+            vscode.window.showInformationMessage(
+                'Claude Code Notifier: banners and sound will now be delivered to your own computer.'
+            );
+        } catch (err) {
+            vscode.window.showErrorMessage(
+                `Claude Code Notifier: the companion could not be installed — ${err.message}`
+            );
+        }
+    } else if (choice === never && globalState) {
+        await globalState.update(NEVER_OFFER_COMPANION, true);
+    }
+}
+
 function activate(context) {
+    active = true;
     log('activated');
 
-    // VS Code runs this extension where the code lives. On a remote window that is
-    // not the machine the user is sitting at, which changes what we can promise.
+    globalState = context.globalState || null;
+
+    // VS Code runs this extension where the code lives. On a remote window that is not
+    // the machine the user is sitting at, so delivery has to be handed to the companion
+    // running over there.
     remoteHost = describeRemoteHost(vscode.env && vscode.env.remoteName);
-    if (remoteHost) log(`running on ${remoteHost.label} (${remoteHost.name})`);
+    if (remoteHost) {
+        log(`running on ${remoteHost.label} (${remoteHost.name})`);
+        isCompanionInstalled({
+            getExtension: (id) => vscode.extensions.getExtension(id),
+            executeCommand: runCommand,
+        }).then((installed) => {
+            if (!active) return;
+            companionInstalled = installed;
+            log(`companion ${installed ? 'available' : 'not installed'}`);
+            if (!installed) offerCompanion();
+        });
+    }
 
     // Post banners under the editor's own identity so they carry its icon and name.
     const sender = resolveSenderBundleId();
@@ -92,6 +161,16 @@ function activate(context) {
         );
     }
 
+    const delivery = createCompanionDelivery({
+        remote: Boolean(remoteHost),
+        executeCommand: runCommand,
+        deliverHere: (text, options) => sendSystemNotification(text, {
+            ...options,
+            onError: reportOsNotificationFailure,
+        }),
+        log,
+    });
+
     const controller = createNotificationController({
         notifyFile: NOTIFY_FILE,
         getSettings,
@@ -99,10 +178,12 @@ function activate(context) {
             showMessage: (text) => vscode.window.showWarningMessage(text, 'OK'),
         },
         notifier: {
-            send: (text, options) => sendSystemNotification(text, {
-                ...options,
-                onError: reportOsNotificationFailure,
-            }),
+            send: (text, options) => {
+                delivery.send(text, options).then((result) => {
+                    if (result.via === 'companion' && result.error) reportCompanionFailure(result);
+                    else if (result.companionMissing) offerCompanion();
+                });
+            },
         },
         log,
     });
@@ -129,6 +210,15 @@ function activate(context) {
         }),
 
         vscode.commands.registerCommand('claude-notifier.diagnose', async () => {
+            // Asked again here rather than trusted from activation: the companion may
+            // have been installed since, and the report has to describe the real path.
+            if (remoteHost) {
+                companionInstalled = await isCompanionInstalled({
+                    getExtension: (id) => vscode.extensions.getExtension(id),
+                    executeCommand: runCommand,
+                });
+            }
+
             if (!outputChannel) outputChannel = vscode.window.createOutputChannel('Claude Code Notifier');
             outputChannel.clear();
             outputChannel.show(true);
@@ -140,6 +230,11 @@ function activate(context) {
                 notifyScriptDest: NOTIFY_SCRIPT_DEST,
                 notifyFile: NOTIFY_FILE,
                 remote: remoteHost,
+                companionInstalled,
+                // Diagnostics has to exercise the path notifications really take.
+                notify: remoteHost && companionInstalled
+                    ? companionNotifyAdapter({ executeCommand: runCommand })
+                    : undefined,
                 onStep: (label) => outputChannel.appendLine(`  → ${label}`),
             });
 
@@ -159,6 +254,7 @@ function stopWatcher() {
 }
 
 function deactivate() {
+    active = false;
     stopWatcher();
 }
 

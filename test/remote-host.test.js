@@ -1,4 +1,4 @@
-const { describeRemoteHost, remoteWarningMessage, remoteReportLines } = require('../lib/remote-host');
+const { describeRemoteHost, companionOfferMessage, remoteReportLines } = require('../lib/remote-host');
 
 describe('describeRemoteHost', () => {
     test('a local window is not remote', () => {
@@ -25,19 +25,27 @@ describe('describeRemoteHost', () => {
 
 describe('what the user is told', () => {
     test('nothing is said when the window is local', () => {
-        expect(remoteWarningMessage(null)).toBeNull();
+        expect(companionOfferMessage(null)).toBeNull();
         expect(remoteReportLines(null)).toEqual([]);
     });
 
-    test('the warning names the remote and points at the working signal', () => {
-        const message = remoteWarningMessage(describeRemoteHost('ssh-remote'));
+    test('the offer names the remote, the fix, and the signal that already works', () => {
+        const message = companionOfferMessage(describeRemoteHost('ssh-remote'));
         expect(message).toContain('a remote machine over SSH');
-        expect(message).toContain('notification inside VS Code still works');
+        expect(message).toContain('Install the companion extension');
+        expect(message).toContain('notification inside VS Code works either way');
     });
 
-    test('the report explains the failure instead of blaming the setup', () => {
+    test('with no companion the report explains the failure and names the fix', () => {
         const text = remoteReportLines(describeRemoteHost('wsl')).join('\n');
         expect(text).toContain('WSL');
         expect(text).toContain('not a fault in your setup');
+        expect(text).toContain('Claude Code Notifier (Local)');
+    });
+
+    test('with the companion the report says delivery reached the user instead', () => {
+        const text = remoteReportLines(describeRemoteHost('wsl'), { companionInstalled: true }).join('\n');
+        expect(text).toContain('companion extension on your own computer delivered');
+        expect(text).not.toContain('not a fault in your setup');
     });
 });
