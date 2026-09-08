@@ -30,6 +30,7 @@ VS Code popup + system banner + sound
 | `lib/host-app.js` | Works out which editor the extension host runs inside |
 | `lib/hook-installer.js` | Installs and repairs `notify.js` and the hook config |
 | `lib/diagnostics.js` | Backs the *Diagnose Notifications* command |
+| `lib/remote-host.js` | Explains a remote window, where banners cannot reach the user |
 | `lib/payload.js` | Pure functions: parse trigger file, match event names |
 | `hooks/notify.js` | Claude Code hook script — reads stdin, writes trigger file |
 
@@ -177,6 +178,7 @@ Everything except "did a banner physically appear on screen" is covered by
 | `test/host-app.test.js` | Resolving the host editor's bundle identifier |
 | `test/hook-installer.test.js` | Settings write, idempotency, repair of legacy installs |
 | `test/diagnostics.test.js` | Setup checks, live checks, and report wording |
+| `test/remote-host.test.js` | Recognising a remote window and what the user is told |
 | `test/payload.test.js` | Trigger file parsing and event-name matching |
 | `test/notify.test.js` | `hooks/notify.js` stdin parsing and file write |
 

@@ -8,6 +8,7 @@ const { resolveSenderBundleId } = require('./lib/host-app');
 const { createNotificationController } = require('./lib/notification-controller');
 const { createTriggerWatcher } = require('./lib/trigger-watcher');
 const { runDiagnostics } = require('./lib/diagnostics');
+const { describeRemoteHost, remoteWarningMessage } = require('./lib/remote-host');
 
 const NOTIFY_FILE = path.join(os.tmpdir(), 'claude-notify');
 const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
@@ -16,6 +17,7 @@ const NOTIFY_SCRIPT_DEST = path.join(os.homedir(), '.claude', 'notify.js');
 let watcher = null;
 let outputChannel = null;
 let warnedAboutOsNotification = false;
+let remoteHost = null;
 
 function log(message) {
     console.log(`[claude-code-notifier] ${message}`);
@@ -46,13 +48,16 @@ function getSettings() {
 }
 
 // A silent OS-notification failure is the hardest problem to report, so surface it
-// once per session and point at the diagnostics.
+// once per session and point at the diagnostics. On a window attached to a remote
+// machine the cause is known up front, so say that instead of the generic failure.
 function reportOsNotificationFailure(err, info) {
     log(`OS notification failed via ${info.method || 'unknown'}: ${err.message}`);
     if (warnedAboutOsNotification) return;
     warnedAboutOsNotification = true;
+    const message = remoteWarningMessage(remoteHost)
+        || `Claude Code Notifier: the system notification could not be shown (${info.method || 'unknown'}).`;
     vscode.window.showWarningMessage(
-        `Claude Code Notifier: the system notification could not be shown (${info.method || 'unknown'}).`,
+        message,
         'Run diagnostics'
     ).then(selection => {
         if (selection === 'Run diagnostics') vscode.commands.executeCommand('claude-notifier.diagnose');
@@ -61,6 +66,11 @@ function reportOsNotificationFailure(err, info) {
 
 function activate(context) {
     log('activated');
+
+    // VS Code runs this extension where the code lives. On a remote window that is
+    // not the machine the user is sitting at, which changes what we can promise.
+    remoteHost = describeRemoteHost(vscode.env && vscode.env.remoteName);
+    if (remoteHost) log(`running on ${remoteHost.label} (${remoteHost.name})`);
 
     // Post banners under the editor's own identity so they carry its icon and name.
     const sender = resolveSenderBundleId();
@@ -129,6 +139,7 @@ function activate(context) {
                 settingsPath: SETTINGS_PATH,
                 notifyScriptDest: NOTIFY_SCRIPT_DEST,
                 notifyFile: NOTIFY_FILE,
+                remote: remoteHost,
                 onStep: (label) => outputChannel.appendLine(`  → ${label}`),
             });
 

@@ -13,6 +13,7 @@ const state = {
     outputChannels: [],
     config: {},
     focused: false,
+    remoteName: undefined,
 };
 
 function reset(config = {}) {
@@ -23,6 +24,7 @@ function reset(config = {}) {
     state.outputChannels = [];
     state.config = { ...config };
     state.focused = false;
+    state.remoteName = undefined;
 }
 
 function recordMessage(bucket, text, items) {
@@ -69,7 +71,12 @@ const vscode = {
         },
     },
     Uri: { parse: (value) => ({ value }) },
-    env: { openExternal: () => Promise.resolve(true) },
+    env: {
+        openExternal: () => Promise.resolve(true),
+        get remoteName() {
+            return state.remoteName;
+        },
+    },
 
     // test helpers
     __state: state,
@@ -81,6 +88,7 @@ const vscode = {
     },
     __setConfig: (config) => { state.config = { ...state.config, ...config }; },
     __setFocused: (value) => { state.focused = value; },
+    __setRemoteName: (value) => { state.remoteName = value; },
 };
 
 module.exports = vscode;
