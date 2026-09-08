@@ -30,7 +30,10 @@ VS Code popup + system banner + sound
 | `lib/host-app.js` | Works out which editor the extension host runs inside |
 | `lib/hook-installer.js` | Installs and repairs `notify.js` and the hook config |
 | `lib/diagnostics.js` | Backs the *Diagnose Notifications* command |
-| `lib/remote-host.js` | Explains a remote window, where banners cannot reach the user |
+| `lib/remote-host.js` | Explains a remote window and what the user is told there |
+| `lib/companion.js` | Hands delivery to the companion on the user's own machine |
+| `companion/extension.js` | The companion extension — the pair of hands on that machine |
+| `scripts/sync-shared.js` | Copies the shared notification code into the companion package |
 | `lib/payload.js` | Pure functions: parse trigger file, match event names |
 | `hooks/notify.js` | Claude Code hook script — reads stdin, writes trigger file |
 
@@ -43,6 +46,20 @@ unacknowledged popup silenced every later notification until VS Code was restart
 **The trigger file is cleared as soon as it is read.** With several VS Code windows
 open, whichever window reads first wins, so a single event produces one popup rather
 than one per window.
+
+**In a remote window, delivery is handed to a second extension.** VS Code runs an
+extension either on the user's machine or on the remote one — never both — so a banner
+asked for from a remote window reaches nobody. The companion extension declares itself
+local-only, registers two commands, and the main extension calls them; VS Code routes a
+command to whichever side registered it. If the companion is absent the call is rejected,
+which is exactly how its absence is detected, and delivery falls back to trying this
+machine. The main extension deliberately does *not* declare the companion as a hard
+dependency: local users never need it, and a failed install must not stop notifications.
+
+**Diagnostics test the path notifications really take.** With a companion in play, the
+report fires its banner and sound through the companion, because testing the remote
+machine's own banner would report a failure for something that works. The companion is
+re-checked when the command runs, not trusted from activation.
 
 **Banners are posted under the editor's own identity.** The bundle identifier is read
 from the running application at activation, so VS Code, Insiders, VSCodium and Cursor
@@ -145,9 +162,15 @@ npm test
 
 **Package locally:**
 ```bash
-vsce package
+npm run package                 # the main extension
+npm run package:companion       # the companion, from companion/
 code --install-extension claude-code-notifier-*.vsix
 ```
+
+The companion shares `lib/system-notification.js`, `lib/host-app.js` and the icon rather
+than owning copies of them. `scripts/sync-shared.js` copies them in, and it runs
+automatically before the companion is packaged or published, so the copies are never
+committed.
 
 **Simulate a hook:**
 ```bash
@@ -159,8 +182,24 @@ echo '{"hook_event_name":"SubagentStop","last_assistant_message":"Subagent done"
 **Publish:**
 ```bash
 vsce login erdemgiray
-vsce publish        # uses current version in package.json
-vsce publish minor  # bumps minor version and publishes
+vsce publish                    # the main extension, version from package.json
+cd companion && vsce publish    # the companion, versioned independently
+```
+
+The two are versioned independently on purpose — the companion changes rarely, and
+bumping it for every main release would be noise. Anything that changes the commands
+they exchange has to ship on both sides.
+
+## Architecture diagram (remote window)
+
+```
+remote machine                                  the user's computer
+──────────────                                  ───────────────────
+Claude Code hook → trigger file
+       │
+Claude Code Notifier  ── VS Code command ──▶  Claude Code Notifier (Local)
+       │                                              │
+   VS Code popup ────────── drawn locally ───────▶ banner + sound
 ```
 
 ## Test Coverage
@@ -179,6 +218,7 @@ Everything except "did a banner physically appear on screen" is covered by
 | `test/hook-installer.test.js` | Settings write, idempotency, repair of legacy installs |
 | `test/diagnostics.test.js` | Setup checks, live checks, and report wording |
 | `test/remote-host.test.js` | Recognising a remote window and what the user is told |
+| `test/companion.test.js` | Routing to the companion, detecting it, diagnosing through it |
 | `test/payload.test.js` | Trigger file parsing and event-name matching |
 | `test/notify.test.js` | `hooks/notify.js` stdin parsing and file write |
 

@@ -9,3 +9,6 @@ _local/
 .claude
 .claude/
 test/__pycache__/
+companion/lib/
+companion/icon.png
+companion/LICENSE

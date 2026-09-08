@@ -1,0 +1,40 @@
+{
+  "name": "claude-code-notifier-companion",
+  "displayName": "Claude Code Notifier (Local)",
+  "description": "Delivers Claude Code Notifier's banner and sound to your own computer when VS Code is connected to a remote machine, WSL, or a container",
+  "version": "1.0.0",
+  "publisher": "erdemgiray",
+  "author": {
+    "name": "Erdem Giray"
+  },
+  "icon": "icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/egiray/claude-code-notifier"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "notifications",
+    "remote",
+    "ssh",
+    "wsl"
+  ],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "scripts": {
+    "vscode:prepublish": "node ../scripts/sync-shared.js"
+  }
+}
