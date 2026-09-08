@@ -189,6 +189,17 @@ describe('showOsNotification — other platforms', () => {
         expect(argsOf(0)[2]).toContain('Need permission');
     });
 
+    test('Windows declares every WinRT type the toast command uses', () => {
+        os.platform.mockReturnValue('win32');
+        showOsNotification('Need permission');
+        const command = argsOf(0)[2];
+        // Windows PowerShell 5.1 resolves each WinRT type only if it is declared;
+        // a missing declaration makes the whole toast fail on its first statement.
+        expect(command).toContain('[Windows.UI.Notifications.ToastNotificationManager,Windows.UI.Notifications,ContentType=WindowsRuntime]');
+        expect(command).toContain('[Windows.UI.Notifications.ToastNotification,Windows.UI.Notifications,ContentType=WindowsRuntime]');
+        expect(command).toContain('[Windows.Data.Xml.Dom.XmlDocument,Windows.Data.Xml.Dom,ContentType=WindowsRuntime]');
+    });
+
     test('Linux uses notify-send with separate arguments', () => {
         os.platform.mockReturnValue('linux');
         showOsNotification('Need permission');

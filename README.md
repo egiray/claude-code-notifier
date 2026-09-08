@@ -63,6 +63,20 @@ appears and nothing reports an error.
 - Or install `terminal-notifier`, which lets banners appear as VS Code itself, with
   its icon and its notification settings: `brew install terminal-notifier`
 
+**I am connected to a remote machine (SSH, WSL, a container, a Codespace) and only
+the VS Code popup appears**
+
+VS Code runs extensions where your code lives, not where you are sitting. In a remote
+window this extension runs on the remote machine, so the banner and the sound are
+produced over there — on a machine that usually has no screen and no speakers. Nothing
+reaches your own computer, and the diagnostics will report the banner and sound as
+failed because the remote machine really cannot deliver them.
+
+The notification inside VS Code is drawn by the editor on your own computer, so it
+still works and is your reliable signal in a remote window. Delivering banners and
+sound to your own computer from a remote window is not something the extension can do
+yet.
+
 **A question from Claude never notifies me**
 
 Claude's own multiple-choice question box does not announce itself to anything outside

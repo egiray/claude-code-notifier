@@ -222,6 +222,46 @@ describe('buildReport', () => {
     });
 });
 
+describe('buildReport on a remote window', () => {
+    const remote = { name: 'ssh-remote+box', label: 'a remote machine over SSH' };
+
+    test('explains the delivery failures before anything else', () => {
+        const report = buildReport({
+            platform: 'linux',
+            notify: makeNotify(),
+            remote,
+            setupChecks: [{ name: 'Where this runs', info: true, detail: 'On a remote machine over SSH' }],
+            liveChecks: [{ name: 'System banner', ok: false, detail: 'no notification service' }],
+        });
+        const advice = report.slice(report.indexOf('What to do next'));
+        expect(advice.indexOf('a remote machine over SSH')).toBeLessThan(advice.indexOf('check(s) failed'));
+        expect(report).toContain('not a fault in your setup');
+    });
+
+    test('an informational line is not counted as a failure', () => {
+        const report = buildReport({
+            platform: 'linux',
+            notify: makeNotify(),
+            remote,
+            setupChecks: [{ name: 'Where this runs', info: true, detail: 'On a remote machine over SSH' }],
+            liveChecks: [{ name: 'Sound', ok: true, detail: 'ran' }],
+        });
+        expect(report).toContain('INFO  Where this runs');
+        expect(report).not.toContain('check(s) failed');
+    });
+
+    test('macOS advice is withheld, since the banner would land on the wrong machine', () => {
+        const report = buildReport({
+            platform: 'darwin',
+            notify: makeNotify(),
+            remote,
+            setupChecks: [],
+            liveChecks: [{ name: 'Banner via osascript', ok: true, detail: 'ran' }],
+        });
+        expect(report).not.toContain('Script Editor');
+    });
+});
+
 describe('runDiagnostics', () => {
     test('returns setup checks, live checks and a rendered report', async () => {
         const result = await runDiagnostics({
@@ -237,5 +277,21 @@ describe('runDiagnostics', () => {
         expect(result.setupChecks.length).toBeGreaterThan(0);
         expect(result.liveChecks.length).toBeGreaterThan(0);
         expect(result.report).toContain('Claude Code Notifier — diagnostics');
+    });
+
+    test('a remote window is reported as such at the top of the setup section', async () => {
+        const result = await runDiagnostics({
+            settingsPath: '/home/user/.claude/settings.json',
+            notifyScriptDest: SCRIPT,
+            notifyFile: '/tmp/claude-notify',
+            platform: 'linux',
+            remote: { name: 'ssh-remote+box', label: 'a remote machine over SSH' },
+            notify: makeNotify(),
+            fsImpl: makeFs({ files: { '/home/user/.claude/settings.json': settingsWithHooks() }, existing: [SCRIPT] }),
+            sleep: noSleep,
+        });
+
+        expect(result.setupChecks[0].name).toBe('Where this runs');
+        expect(result.report).toContain('not on your computer');
     });
 });

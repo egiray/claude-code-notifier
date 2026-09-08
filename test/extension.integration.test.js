@@ -60,7 +60,7 @@ describe('extension end to end', () => {
         });
     }
 
-    function activate({ config = {} } = {}) {
+    function activate({ config = {}, remoteName } = {}) {
         // Guard against a redirect that silently failed and would write to real paths.
         expect(require('os').homedir()).toBe(home);
         expect(require('os').tmpdir()).toBe(tmp);
@@ -68,6 +68,7 @@ describe('extension end to end', () => {
         jest.resetModules();
         vscode = require('vscode');
         vscode.__reset(config);
+        if (remoteName) vscode.__setRemoteName(remoteName);
         // resetModules hands the extension a fresh mock, so re-capture it here.
         execFile = require('child_process').execFile;
         extension = require('../extension.js');
@@ -236,6 +237,30 @@ describe('extension end to end', () => {
         expect(vscode.__lastWarning().text).toContain('Test: Claude needs your permission');
     });
 
+    // ── remote windows ──────────────────────────────────────────────────────
+
+    test('a failed banner on a remote window is explained, not reported as a fault', async () => {
+        activate({ remoteName: 'ssh-remote+build-box' });
+        execFile.mockImplementation((cmd, args, cb) => cb && cb(new Error('no notification service')));
+
+        await vscode.commands.executeCommand('claude-notifier.notify');
+        await waitFor(() => vscode.__state.warnings.some(w => w.text.includes('remote machine over SSH')));
+
+        const texts = vscode.__state.warnings.map(w => w.text).join('\n');
+        expect(texts).toContain('notification inside VS Code still works');
+        expect(texts).not.toContain('could not be shown');
+    });
+
+    test('a local window keeps the plain failure message', async () => {
+        activate();
+        execFile.mockImplementation((cmd, args, cb) => cb && cb(new Error('boom')));
+
+        await vscode.commands.executeCommand('claude-notifier.notify');
+        await waitFor(() => vscode.__state.warnings.some(w => w.text.includes('could not be shown')));
+
+        expect(vscode.__state.warnings.map(w => w.text).join('\n')).not.toContain('remote machine');
+    });
+
     test('the diagnose command writes a report to an output channel', async () => {
         activate();
         await vscode.commands.executeCommand('claude-notifier.diagnose');
@@ -246,5 +271,15 @@ describe('extension end to end', () => {
         expect(text).toContain('Claude Code Notifier — diagnostics');
         expect(text).toContain('Hook configuration');
         expect(text).toContain('Trigger file');
+    }, 15000);
+
+    test('the report on a remote window says where the banner is going', async () => {
+        activate({ remoteName: 'ssh-remote+build-box' });
+        await vscode.commands.executeCommand('claude-notifier.diagnose');
+
+        const text = vscode.__state.outputChannels[0].lines.join('\n');
+        expect(text).toContain('INFO  Where this runs');
+        expect(text).toContain('a remote machine over SSH');
+        expect(text).toContain('not on your computer');
     }, 15000);
 });
