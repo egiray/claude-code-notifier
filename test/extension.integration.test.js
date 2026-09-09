@@ -73,7 +73,7 @@ describe('extension end to end', () => {
         };
     }
 
-    function activate({ config = {}, remoteName, companion = false, store } = {}) {
+    function activate({ config = {}, remoteName, companion = false, store, folders } = {}) {
         // Guard against a redirect that silently failed and would write to real paths.
         expect(require('os').homedir()).toBe(home);
         expect(require('os').tmpdir()).toBe(tmp);
@@ -82,6 +82,7 @@ describe('extension end to end', () => {
         vscode = require('vscode');
         vscode.__reset(config);
         if (remoteName) vscode.__setRemoteName(remoteName);
+        if (folders) vscode.__setWorkspaceFolders(folders);
         companionCalls = [];
         if (companion) {
             // Stand in for the companion extension on the user's own machine: present
@@ -248,8 +249,12 @@ describe('extension end to end', () => {
         fireHook({ notification_type: 'permission_prompt', message: 'Before deletion' });
         await waitFor(() => vscode.__state.warnings.length === 1);
 
+        // Taking a notification moves the file aside, so wait for the watcher to put
+        // it back before deleting it — otherwise there is nothing to delete.
+        await waitFor(() => fs.existsSync(notifyFile()), { timeout: 4000 });
+
         // macOS prunes the temp directory; the old watcher died silently here.
-        fs.rmSync(notifyFile());
+        fs.rmSync(notifyFile(), { force: true });
         await waitFor(() => fs.existsSync(notifyFile()), { timeout: 4000 });
 
         fireHook({ notification_type: 'permission_prompt', message: 'After deletion' });
@@ -295,6 +300,57 @@ describe('extension end to end', () => {
         // A banner, but nothing played — which is what those two settings meant.
         const commands = execFile.mock.calls.map(c => c[0]);
         expect(commands).not.toContain('afplay');
+    });
+
+    // ── which window answers ────────────────────────────────────────────────
+
+    // pid 1 is always running and is never this process, which makes it a reliable
+    // stand-in for another VS Code window that is still open.
+    function otherWindowHasOpen(folder) {
+        const dir = path.join(tmp, 'claude-notifier-windows');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, '1'), folder, 'utf8');
+    }
+
+    test('a notification is left alone when another window has that project open', async () => {
+        otherWindowHasOpen('/work/api');
+        activate({ folders: ['/work/web'] });
+
+        fireHook({ notification_type: 'permission_prompt', message: 'Need permission', cwd: '/work/api/src' });
+
+        await new Promise(resolve => setTimeout(resolve, 400));
+        expect(vscode.__state.warnings).toHaveLength(0);
+        // Still waiting, so the window it belongs to can pick it up.
+        expect(fs.readFileSync(notifyFile(), 'utf8')).toContain('Need permission');
+    });
+
+    test('the window that has the project open answers it', async () => {
+        otherWindowHasOpen('/work/api');
+        activate({ folders: ['/work/web'] });
+
+        fireHook({ notification_type: 'permission_prompt', message: 'Need permission', cwd: '/work/web/app' });
+
+        await waitFor(() => vscode.__state.warnings.length > 0);
+        expect(vscode.__lastWarning().text).toContain('Need permission');
+    });
+
+    test('a project no window has open is still announced', async () => {
+        otherWindowHasOpen('/work/api');
+        activate({ folders: ['/work/web'] });
+
+        fireHook({ notification_type: 'permission_prompt', message: 'Need permission', cwd: '/tmp/scratch' });
+
+        await waitFor(() => vscode.__state.warnings.length > 0);
+        expect(vscode.__lastWarning().text).toContain('Need permission');
+    });
+
+    test('a window announces the folders it has open, and takes the note back on close', () => {
+        activate({ folders: ['/work/web'] });
+        const marker = path.join(tmp, 'claude-notifier-windows', String(process.pid));
+        expect(fs.readFileSync(marker, 'utf8')).toBe('/work/web');
+
+        extension.deactivate();
+        expect(fs.existsSync(marker)).toBe(false);
     });
 
     // ── remote windows ──────────────────────────────────────────────────────

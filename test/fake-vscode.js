@@ -17,6 +17,7 @@ const state = {
     extensions: new Map(),
     globalState: new Map(),
     configListeners: [],
+    workspaceFolders: undefined,
 };
 
 function reset(config = {}) {
@@ -31,6 +32,7 @@ function reset(config = {}) {
     state.extensions = new Map();
     state.globalState = new Map();
     state.configListeners = [];
+    state.workspaceFolders = undefined;
 }
 
 function recordMessage(bucket, text, items) {
@@ -62,6 +64,10 @@ const vscode = {
         },
     },
     workspace: {
+        onDidChangeWorkspaceFolders: () => ({ dispose: () => {} }),
+        get workspaceFolders() {
+            return state.workspaceFolders;
+        },
         onDidChangeConfiguration: (handler) => {
             state.configListeners.push(handler);
             return { dispose: () => {} };
@@ -113,6 +119,9 @@ const vscode = {
     },
     __setFocused: (value) => { state.focused = value; },
     __setRemoteName: (value) => { state.remoteName = value; },
+    __setWorkspaceFolders: (paths) => {
+        state.workspaceFolders = paths && paths.map(p => ({ uri: { fsPath: p } }));
+    },
     __installExtension: (id) => { state.extensions.set(id, { id, isActive: true }); },
     __globalState: () => ({
         get: (key, fallback) => (state.globalState.has(key) ? state.globalState.get(key) : fallback),

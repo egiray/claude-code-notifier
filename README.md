@@ -8,7 +8,7 @@ still know the moment it needs you.
 
 - Tells you when Claude needs permission, has a question, or has finished
 - Plays a different sound for each of those, so you know which one without looking
-- Names the project that called, which is what you want when several windows are open
+- Shows the notification in the window that has that project open, not in whichever one noticed first
 - Delivers the banner to your own computer when you work over SSH, in WSL or in a container
 - Stays quiet while Claude works on its own, and about tasks that finished in seconds
 - Installs its own Claude Code hooks on first run, so there is nothing to set up
@@ -88,6 +88,12 @@ VS Code notification within this time, both are cancelled. Default: 0.
 
 **Suppress When Focused** — skip the sound and banner when VS Code is already your
 active window. The VS Code notification still appears. Off by default.
+
+### Several windows open
+
+The notification goes to the window that has the project open, so you are never sent
+looking for it. A session running somewhere no window has open is still announced —
+whichever window sees it first takes it, rather than nobody doing so.
 
 ### Upgrading from an earlier version
 
