@@ -10,6 +10,8 @@ const { createTriggerWatcher } = require('./lib/trigger-watcher');
 const { runDiagnostics } = require('./lib/diagnostics');
 const { describeRemoteHost, companionOfferMessage } = require('./lib/remote-host');
 const { buildEventSettings } = require('./lib/settings');
+const { shouldAnswer } = require('./lib/window-ownership');
+const windowMarkers = require('./lib/window-markers');
 const {
     createCompanionDelivery, companionNotifyAdapter, isCompanionInstalled, COMPANION_ID,
 } = require('./lib/companion');
@@ -30,6 +32,22 @@ let active = false;
 
 function log(message) {
     console.log(`[claude-code-notifier] ${message}`);
+}
+
+function openFolders() {
+    return (vscode.workspace.workspaceFolders || []).map(folder => folder.uri.fsPath);
+}
+
+// Decides whether a notification belongs to this window. A window that has the
+// work open takes it; one that does not stands aside, unless nobody has it open
+// at all — in which case somebody has to say something.
+function decideOwnership(cwd) {
+    return shouldAnswer({
+        cwd,
+        folders: openFolders(),
+        markers: windowMarkers.readMarkers(),
+        ownPid: process.pid,
+    });
 }
 
 // VS Code routes a command to whichever side registered it, so this is how the
@@ -183,9 +201,15 @@ function activate(context) {
         log,
     });
 
+    // Tell the other windows what this one has open, and tidy away notes left by
+    // windows that are no longer running.
+    windowMarkers.cleanStale();
+    windowMarkers.announce({ folders: openFolders() });
+
     const controller = createNotificationController({
         notifyFile: NOTIFY_FILE,
         getSettings,
+        decideOwnership,
         ui: {
             showMessage: (text) => vscode.window.showWarningMessage(text, 'OK'),
         },
@@ -258,6 +282,10 @@ function activate(context) {
             if (event.affectsConfiguration('claudeCodeNotifier.minTaskSeconds')) syncHooks();
         }),
 
+        vscode.workspace.onDidChangeWorkspaceFolders(() => {
+            windowMarkers.announce({ folders: openFolders() });
+        }),
+
         { dispose: () => stopWatcher() }
     );
 }
@@ -271,6 +299,7 @@ function stopWatcher() {
 
 function deactivate() {
     active = false;
+    windowMarkers.forget();
     stopWatcher();
 }
 

@@ -61,11 +61,13 @@ process.stdin.on('end', () => {
     const text = data.message || LABELS[event] || event;
     // Which project called out, decided where the work happens rather than in the
     // window that happens to show the notification.
-    const project = path.basename(data.cwd || process.cwd() || '') || null;
+    const cwd = data.cwd || process.cwd() || '';
+    const project = path.basename(cwd) || null;
     const durationMs = event === 'Stop' ? takeDuration(data.session_id) : null;
 
     const payload = { event, text };
     if (project) payload.project = project;
+    if (cwd) payload.cwd = cwd;
     if (durationMs !== null) payload.durationMs = durationMs;
 
     const notifyFile = path.join(os.tmpdir(), 'claude-notify');

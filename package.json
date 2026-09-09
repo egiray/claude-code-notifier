@@ -2,7 +2,7 @@
   "name": "claude-code-notifier",
   "displayName": "Claude Code Notifier",
   "description": "Know when Claude Code is waiting on you: a sound, a system banner, and the name of the project that called. Works over SSH, WSL and containers.",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "publisher": "erdemgiray",
   "author": {
     "name": "Erdem Giray"

@@ -34,6 +34,8 @@ VS Code popup + system banner + sound
 | `lib/companion.js` | Hands delivery to the companion on the user's own machine |
 | `companion/extension.js` | The companion extension — the pair of hands on that machine |
 | `scripts/sync-shared.js` | Copies the shared notification code into the companion package |
+| `lib/window-ownership.js` | Which window should answer a given notification |
+| `lib/window-markers.js` | Per-window notes saying which projects each has open |
 | `lib/settings.js` | What each event should do, including the older settings it replaced |
 | `lib/sounds.js` | Named sounds mapped to what each operating system ships |
 | `lib/payload.js` | Pure functions: parse trigger file, match event names |
@@ -53,9 +55,26 @@ silently rewritten in anyone's settings file.
 popup before handling the next event. An earlier version did, which meant an
 unacknowledged popup silenced every later notification until VS Code was restarted.
 
-**The trigger file is cleared as soon as it is read.** With several VS Code windows
-open, whichever window reads first wins, so a single event produces one popup rather
-than one per window.
+**The notification goes to the window that has the work open.** Every window watches
+the same trigger file, so it used to be answered by whichever one read it first — a call
+from one project surfacing in another project's window, and `suppressWhenFocused`
+deciding on the wrong window's focus. Now the payload carries the directory Claude was
+working in, each window writes a note (named by process id, under the temp directory)
+listing the folders it has open, and a window answers only when it holds that directory.
+A window that does not hold it stands aside — unless no live window holds it, in which
+case somebody has to speak up. Notes from windows that are gone are ignored by process
+liveness and cleaned on the next activation.
+
+The folder-matching rules come from [ashmitb95/claude-notifier](https://github.com/ashmitb95/claude-notifier)
+(MIT), which had already found the two that bite: a session usually runs in a
+subdirectory rather than at the folder root, and Windows paths differ in case. Their
+hook does the fallback notifying itself; ours stays a single file and settles the
+unowned case in the extension instead.
+
+**A notification is claimed, not cleared.** Taking one renames the trigger file aside,
+which is atomic — when several windows reach for the same notification exactly one
+succeeds and the rest are told there is nothing there. It also means an unacknowledged
+notification can never replay, and the next write always reads as a change.
 
 **In a remote window, delivery is handed to a second extension.** VS Code runs an
 extension either on the user's machine or on the remote one — never both — so a banner
@@ -243,6 +262,8 @@ Everything except "did a banner physically appear on screen" is covered by
 | `test/diagnostics.test.js` | Setup checks, live checks, and report wording |
 | `test/remote-host.test.js` | Recognising a remote window and what the user is told |
 | `test/companion.test.js` | Routing to the companion, detecting it, diagnosing through it |
+| `test/window-ownership.test.js` | Folder matching and which window answers |
+| `test/window-markers.test.js` | Writing, reading and tidying the per-window notes |
 | `test/settings.test.js` | Per-event levels and the translation of the old settings |
 | `test/sounds.test.js` | Named sounds resolving per platform |
 | `test/payload.test.js` | Trigger file parsing and event-name matching |

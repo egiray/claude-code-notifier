@@ -10,18 +10,29 @@ function defaultEvents(overrides = {}) {
     });
 }
 
+// Models the trigger file the way the real one behaves: taking a notification
+// moves the file aside rather than blanking it, so two windows reaching for the
+// same one cannot both succeed.
 function makeFs(initial = '') {
-    let content = initial;
+    const NOTIFY = '/tmp/claude-notify';
+    const files = new Map([[NOTIFY, initial]]);
     let readable = true;
     return {
-        existsSync: () => true,
-        readFileSync: () => {
+        existsSync: (file) => files.has(file),
+        readFileSync: (file) => {
             if (!readable) throw new Error('EACCES');
-            return content;
+            if (!files.has(file)) throw new Error('ENOENT');
+            return files.get(file);
         },
-        writeFileSync: (_file, value) => { content = value; },
-        __write: (value) => { content = value; },
-        __read: () => content,
+        writeFileSync: (file, value) => { files.set(file, value); },
+        renameSync: (from, to) => {
+            if (!files.has(from)) throw new Error('ENOENT');
+            files.set(to, files.get(from));
+            files.delete(from);
+        },
+        unlinkSync: (file) => { files.delete(file); },
+        __write: (value) => { files.set(NOTIFY, value); },
+        __read: () => (files.has(NOTIFY) ? files.get(NOTIFY) : ''),
         __breakReads: () => { readable = false; },
     };
 }
@@ -206,6 +217,78 @@ describe('delayed notifications', () => {
         await Promise.resolve();
 
         expect(h.timers[0].cancelled).toBe(false);
+    });
+});
+
+describe('which window answers', () => {
+    function makeWindow(fsImpl, decideOwnership) {
+        const popups = [];
+        return {
+            popups,
+            controller: createNotificationController({
+                notifyFile: '/tmp/claude-notify',
+                fsImpl,
+                decideOwnership,
+                ownId: Math.random(),
+                getSettings: () => ({
+                    events: defaultEvents(), minTaskSeconds: 0, delayMs: 0,
+                    suppressWhenFocused: false, windowFocused: false,
+                }),
+                ui: { showMessage: (text) => { popups.push(text); return null; } },
+                notifier: { send: () => {} },
+            }),
+        };
+    }
+
+    const owner = () => ({ answer: true, because: 'owner' });
+    const notOurs = () => ({ answer: false, because: 'owned-elsewhere' });
+
+    test('a window that does not own the work leaves it where it is', () => {
+        const fsImpl = makeFs(JSON.stringify({ event: 'permission_prompt', text: 'Need permission', cwd: '/w/api' }));
+        const bystander = makeWindow(fsImpl, notOurs);
+
+        expect(bystander.controller.handle().status).toBe('not-ours');
+        expect(bystander.popups).toHaveLength(0);
+        // Still waiting, so the window it belongs to can pick it up.
+        expect(fsImpl.__read()).not.toBe('');
+    });
+
+    test('the window that owns it takes it', () => {
+        const fsImpl = makeFs(JSON.stringify({ event: 'permission_prompt', text: 'Need permission', cwd: '/w/api' }));
+        const bystander = makeWindow(fsImpl, notOurs);
+        const home = makeWindow(fsImpl, owner);
+
+        bystander.controller.handle();
+        expect(home.controller.handle().status).toBe('shown');
+        expect(home.popups).toHaveLength(1);
+        expect(fsImpl.__read()).toBe('');
+    });
+
+    test('when two windows both reach for it, only one gets it', () => {
+        const fsImpl = makeFs(JSON.stringify({ event: 'permission_prompt', text: 'Need permission', cwd: '/w/api' }));
+        const first = makeWindow(fsImpl, owner);
+        const second = makeWindow(fsImpl, owner);
+
+        expect(first.controller.handle().status).toBe('shown');
+        expect(second.controller.handle().status).toBe('empty');
+        expect(second.popups).toHaveLength(0);
+    });
+
+    test('a notification from a project nobody has open is still announced', () => {
+        const fsImpl = makeFs(JSON.stringify({ event: 'permission_prompt', text: 'Need permission', cwd: '/tmp/scratch' }));
+        const anyone = makeWindow(fsImpl, () => ({ answer: true, because: 'nobody-owns-it' }));
+        expect(anyone.controller.handle().status).toBe('shown');
+    });
+
+    test('a notification from an older hook is answered the way it always was', () => {
+        const fsImpl = makeFs(JSON.stringify({ event: 'permission_prompt', text: 'Need permission' }));
+        const seen = [];
+        const window = makeWindow(fsImpl, (cwd) => {
+            seen.push(cwd);
+            return { answer: true, because: 'unrouted' };
+        });
+        expect(window.controller.handle().status).toBe('shown');
+        expect(seen).toEqual([null]);
     });
 });
 
