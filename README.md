@@ -1,15 +1,17 @@
 # Claude Code Notifier
 
-Never miss when Claude Code needs your attention! Get instant VS Code notifications — with sound — when Claude asks questions or needs permissions.
+Claude Code stops and waits for you: it needs permission to run something, it has a
+question, or it finished the task. This extension tells you, so you can look away and
+still know the moment it needs you.
 
-## Features
+## What it does
 
-- **VS Code Notifications** — Get notified directly in VS Code when Claude needs you
-- **Sound + OS Notifications** — Hear it even when you're focused on another app (macOS, Windows, Linux)
-- **Smart Filtering** — Only notifies when Claude is blocked, not during autonomous tool use
-- **Zero Configuration** — Hooks install automatically on first activation
-- **Tells You Which Project** — with several windows open, you see which one is calling
-- **Works over SSH, WSL and containers** — a one-click companion delivers banners and sound to your own computer
+- Tells you when Claude needs permission, has a question, or has finished
+- Plays a different sound for each of those, so you know which one without looking
+- Names the project that called, which is what you want when several windows are open
+- Delivers the banner to your own computer when you work over SSH, in WSL or in a container
+- Stays quiet while Claude works on its own, and about tasks that finished in seconds
+- Installs its own Claude Code hooks on first run, so there is nothing to set up
 
 ## Installation
 

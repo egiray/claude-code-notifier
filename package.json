@@ -1,7 +1,7 @@
 {
   "name": "claude-code-notifier",
   "displayName": "Claude Code Notifier",
-  "description": "Get VS Code notifications when Claude Code needs your attention - never miss a question or permission request",
+  "description": "Know when Claude Code is waiting on you: a sound, a system banner, and the name of the project that called. Works over SSH, WSL and containers.",
   "version": "1.4.0",
   "publisher": "erdemgiray",
   "author": {
