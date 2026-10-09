@@ -37,7 +37,7 @@ function makeFs(initial = '') {
     };
 }
 
-function makeHarness({ settings = {}, initialContent = '' } = {}) {
+function makeHarness({ settings = {}, initialContent = '', bannerReachesUser } = {}) {
     const fsImpl = makeFs(initialContent);
     const popups = [];
     const sent = [];
@@ -64,6 +64,7 @@ function makeHarness({ settings = {}, initialContent = '' } = {}) {
             },
         },
         notifier: { send: (text, options) => sent.push({ text, options }) },
+        bannerReachesUser,
         now: () => clock,
         setTimeoutImpl: (fn, ms) => {
             const timer = { fn, ms, cancelled: false };
@@ -385,5 +386,55 @@ describe('suppressWhenFocused', () => {
         const h = makeHarness({ settings: { suppressWhenFocused: true, windowFocused: false } });
         h.fire({ event: 'permission_prompt', text: 'Need permission' });
         expect(h.sent[0].options).toMatchObject({ notification: true, sound: true });
+    });
+});
+
+describe('a choice without the VS Code notification', () => {
+    const dropsPopup = () => defaultEvents({ 'permissionRequest.level': 'sound+banner-only' });
+
+    test('sends the sound and banner and shows no VS Code notification', () => {
+        const h = makeHarness({ settings: { events: dropsPopup() } });
+        const result = h.fire({ event: 'permission_prompt', text: 'Need permission' });
+
+        expect(result.status).toBe('shown');
+        expect(h.popups).toHaveLength(0);
+        expect(h.sent[0].options).toMatchObject({ notification: true, sound: true, soundName: 'Alert' });
+    });
+
+    test('is not held back by the delay, since there is no notification to click to cancel it', () => {
+        const h = makeHarness({ settings: { delayMs: 5000, events: dropsPopup() } });
+        const result = h.fire({ event: 'permission_prompt', text: 'Need permission' });
+
+        expect(result.delayed).toBe(false);
+        expect(h.timers).toHaveLength(0);
+        expect(h.sent).toHaveLength(1);
+    });
+
+    test('shows the VS Code notification instead when its banner cannot reach the user', () => {
+        const h = makeHarness({ bannerReachesUser: () => false, settings: { events: dropsPopup() } });
+        h.fire({ event: 'permission_prompt', text: 'Need permission' });
+
+        expect(h.popups).toHaveLength(1);
+    });
+
+    test('keeps the delay, and its cancel, when that fallback notification is shown', async () => {
+        const h = makeHarness({ bannerReachesUser: () => false, settings: { delayMs: 5000, events: dropsPopup() } });
+        h.fire({ event: 'permission_prompt', text: 'Need permission' });
+        expect(h.timers).toHaveLength(1);
+
+        h.popups[0].resolve('OK');
+        await Promise.resolve();
+
+        expect(h.timers[0].cancelled).toBe(true);
+        expect(h.sent).toHaveLength(0);
+    });
+
+    test('stays silent while VS Code is focused and focus suppression is on', () => {
+        const h = makeHarness({ settings: { suppressWhenFocused: true, windowFocused: true, events: dropsPopup() } });
+        const result = h.fire({ event: 'permission_prompt', text: 'Need permission' });
+
+        expect(result.status).toBe('suppressed');
+        expect(h.popups).toHaveLength(0);
+        expect(h.sent).toHaveLength(0);
     });
 });

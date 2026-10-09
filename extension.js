@@ -221,6 +221,9 @@ function activate(context) {
                 });
             },
         },
+        // Without the companion, a banner in a remote window is shown on the remote machine,
+        // where nobody can see it.
+        bannerReachesUser: () => !remoteHost || companionInstalled,
         log,
     });
 

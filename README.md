@@ -32,6 +32,9 @@ companion that runs on your own computer and receives the banner and sound for y
 click, nothing to configure. Say "Don't ask again" and it never comes back; the
 notification inside VS Code keeps working either way.
 
+Until the companion is installed, a remote window shows the VS Code notification even for
+**sound+banner-only**, so nothing is missed.
+
 Banners cannot be delivered when a Codespace is opened in a **browser** rather than in
 desktop VS Code, because the browser side cannot reach your operating system.
 
@@ -52,6 +55,7 @@ Each event gets one choice — what should happen when it fires:
 | Choice | What you get |
 |---|---|
 | **sound+banner** | A sound and a system banner, plus the VS Code notification |
+| **sound+banner-only** | A sound and a system banner, without the VS Code notification. If banners are blocked, you will see nothing |
 | **banner** | A system banner, plus the VS Code notification |
 | **sound** | A sound, plus the VS Code notification |
 | **editor-only** | Only the VS Code notification |
@@ -83,11 +87,15 @@ seconds. Useful when you are watching anyway. Default: 0, which announces everyt
 Switching this on adds one extra Claude Code hook so the extension can time a task;
 setting it back to 0 removes it again.
 
-**Notification Delay** — seconds to wait before the sound and banner. If you dismiss the
-VS Code notification within this time, both are cancelled. Default: 0.
+**Notification Delay** — seconds to wait before the sound and banner. If you click OK on
+the VS Code notification within this time, both are cancelled. Closing it with the X does
+not cancel them. Default: 0. **sound+banner-only** normally has no VS Code notification to
+click, so it does not wait, unless a remote window without the companion shows one in its
+place.
 
 **Suppress When Focused** — skip the sound and banner when VS Code is already your
-active window. The VS Code notification still appears. Off by default.
+active window. The VS Code notification still appears, where the choice has one. Off by
+default.
 
 ### Several windows open
 
@@ -102,7 +110,7 @@ system-notification toggles — still decide what happens if you had set them, s
 setup behaves exactly as it did. They are marked as replaced in the settings list; the
 moment you pick a level for an event, that choice takes over for it.
 
-## Troubleshooting## Troubleshooting
+## Troubleshooting
 
 Start with **Claude Code: Diagnose Notifications** from the command palette — it
 checks the setup, sends a labelled test of each notification type, and tells you
@@ -119,6 +127,11 @@ appears and nothing reports an error.
 - Check that Focus / Do Not Disturb is off
 - Or install `terminal-notifier`, which lets banners appear as VS Code itself, with
   its icon and its notification settings: `brew install terminal-notifier`
+
+**I chose sound+banner-only and heard nothing**
+
+That choice shows no VS Code notification, so when the system blocks banners there is
+nothing else to see. Check the macOS permission described above first.
 
 **I am connected to a remote machine (SSH, WSL, a container, a Codespace) and only
 the VS Code popup appears**

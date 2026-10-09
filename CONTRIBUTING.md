@@ -16,7 +16,7 @@ Extension watches the file (fs.watch + an independent poll)
        │  reads and clears the file immediately
        │  filters by the user's notification settings
        ▼
-VS Code popup + system banner + sound
+VS Code popup (unless the choice drops it) + system banner + sound
 ```
 
 **Key files:**
@@ -82,8 +82,10 @@ asked for from a remote window reaches nobody. The companion extension declares 
 local-only, registers two commands, and the main extension calls them; VS Code routes a
 command to whichever side registered it. If the companion is absent the call is rejected,
 which is exactly how its absence is detected, and delivery falls back to trying this
-machine. The main extension deliberately does *not* declare the companion as a hard
-dependency: local users never need it, and a failed install must not stop notifications.
+machine. Because that fallback reaches nobody, a remote window without the companion also
+shows the VS Code notification for the choice that drops it. The main extension deliberately
+does *not* declare the companion as a hard dependency: local users never need it, and a
+failed install must not stop notifications.
 
 **Diagnostics test the path notifications really take.** With a companion in play, the
 report fires its banner and sound through the companion, because testing the remote
