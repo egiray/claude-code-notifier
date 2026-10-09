@@ -74,6 +74,11 @@ describe('once a new choice is made', () => {
         }, 'Stop')).toBe('sound');
     });
 
+    test('a new choice applies to its own event', () => {
+        expect(levelOf({ 'permissionRequest.level': 'sound+banner-only' }, 'permission_prompt'))
+            .toBe('sound+banner-only');
+    });
+
     test('a value we do not recognise is ignored rather than obeyed', () => {
         expect(levelOf({ 'permissionRequest.level': 'shout' }, 'permission_prompt'))
             .toBe('sound+banner');
@@ -83,13 +88,14 @@ describe('once a new choice is made', () => {
 describe('what a level means', () => {
     test('each level delivers the channels it names', () => {
         expect(channelsFor('sound+banner')).toEqual({ popup: true, banner: true, sound: true });
+        expect(channelsFor('sound+banner-only')).toEqual({ popup: false, banner: true, sound: true });
         expect(channelsFor('banner')).toEqual({ popup: true, banner: true, sound: false });
         expect(channelsFor('sound')).toEqual({ popup: true, banner: false, sound: true });
         expect(channelsFor('editor-only')).toEqual({ popup: true, banner: false, sound: false });
         expect(channelsFor('off')).toEqual({ popup: false, banner: false, sound: false });
     });
 
-    test('every level the settings offer is one the translation can produce', () => {
+    test('the old switches can produce every level except the one only a new choice makes', () => {
         const reachable = new Set([
             migrateLevel({ enabled: false }),
             migrateLevel({ enabled: true, banner: true, sound: true }),
@@ -97,7 +103,10 @@ describe('what a level means', () => {
             migrateLevel({ enabled: true, banner: false, sound: true }),
             migrateLevel({ enabled: true, banner: false, sound: false }),
         ]);
-        expect([...reachable].sort()).toEqual([...LEVELS].sort());
+        // The old switches could never drop the VS Code notification, so this level
+        // exists only as a choice made in the new settings.
+        const onlyNewChoice = ['sound+banner-only'];
+        expect([...reachable].sort()).toEqual(LEVELS.filter((level) => !onlyNewChoice.includes(level)).sort());
     });
 });
 

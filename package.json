@@ -2,7 +2,7 @@
   "name": "claude-code-notifier",
   "displayName": "Claude Code Notifier",
   "description": "Know when Claude Code is waiting on you: a sound, a system banner, and the name of the project that called. Works over SSH, WSL and containers.",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "publisher": "erdemgiray",
   "author": {
     "name": "Erdem Giray"
@@ -61,6 +61,7 @@
           "type": "string",
           "enum": [
             "sound+banner",
+            "sound+banner-only",
             "banner",
             "sound",
             "editor-only",
@@ -68,9 +69,10 @@
           ],
           "enumDescriptions": [
             "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Play a sound and show a system banner, without the VS Code notification. If banners are blocked, you will see nothing.",
             "Show a system banner, alongside the VS Code notification.",
             "Play a sound, alongside the VS Code notification.",
-            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Show only the VS Code notification — no banner, no sound.",
             "Do not notify for this event at all."
           ],
           "default": "sound+banner",
@@ -99,6 +101,7 @@
           "type": "string",
           "enum": [
             "sound+banner",
+            "sound+banner-only",
             "banner",
             "sound",
             "editor-only",
@@ -106,9 +109,10 @@
           ],
           "enumDescriptions": [
             "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Play a sound and show a system banner, without the VS Code notification. If banners are blocked, you will see nothing.",
             "Show a system banner, alongside the VS Code notification.",
             "Play a sound, alongside the VS Code notification.",
-            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Show only the VS Code notification — no banner, no sound.",
             "Do not notify for this event at all."
           ],
           "default": "sound+banner",
@@ -137,6 +141,7 @@
           "type": "string",
           "enum": [
             "sound+banner",
+            "sound+banner-only",
             "banner",
             "sound",
             "editor-only",
@@ -144,9 +149,10 @@
           ],
           "enumDescriptions": [
             "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Play a sound and show a system banner, without the VS Code notification. If banners are blocked, you will see nothing.",
             "Show a system banner, alongside the VS Code notification.",
             "Play a sound, alongside the VS Code notification.",
-            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Show only the VS Code notification — no banner, no sound.",
             "Do not notify for this event at all."
           ],
           "default": "off",
@@ -175,6 +181,7 @@
           "type": "string",
           "enum": [
             "sound+banner",
+            "sound+banner-only",
             "banner",
             "sound",
             "editor-only",
@@ -182,9 +189,10 @@
           ],
           "enumDescriptions": [
             "Play a sound and show a system banner, alongside the VS Code notification.",
+            "Play a sound and show a system banner, without the VS Code notification. If banners are blocked, you will see nothing.",
             "Show a system banner, alongside the VS Code notification.",
             "Play a sound, alongside the VS Code notification.",
-            "Show only the VS Code notification \u2014 no banner, no sound.",
+            "Show only the VS Code notification — no banner, no sound.",
             "Do not notify for this event at all."
           ],
           "default": "off",
@@ -221,12 +229,12 @@
           "default": 0,
           "minimum": 0,
           "maximum": 60,
-          "description": "Seconds to wait before playing sound and showing the system banner. If you dismiss the VS Code notification within this time, both are cancelled."
+          "description": "Seconds to wait before playing sound and showing the system banner. If you press OK on the VS Code notification within this time, both are cancelled. Closing it with X does not cancel them. Does not apply to sound+banner-only, which normally has no VS Code notification to answer."
         },
         "claudeCodeNotifier.suppressWhenFocused": {
           "type": "boolean",
           "default": false,
-          "description": "Skip the sound and system banner when VS Code is already the active window. The VS Code notification still appears."
+          "description": "Skip the sound and system banner when VS Code is already the active window. The VS Code notification still appears, where the choice includes one."
         },
         "claudeCodeNotifier.notifyOnPermissionRequest": {
           "type": "boolean",
